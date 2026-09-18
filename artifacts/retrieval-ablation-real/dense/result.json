@@ -1,0 +1,661 @@
+{
+  "schema_version": "1.0",
+  "experiment": {
+    "schema_version": "1.0",
+    "experiment_id": "rag-intro-dense-real-001",
+    "dataset_version": "0.1.0",
+    "retrieval_variant": "dense",
+    "parser_version": "1.26.4",
+    "chunk_version": "chapter-aware-v1",
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "sparse_config": {},
+    "fusion_config": {},
+    "reranker_model": null,
+    "llm_model": null,
+    "prompt_version": null,
+    "generation_config": {},
+    "code_version": null,
+    "notes": "Real engine run on the reviewed two-page pilot dataset; Qdrant local mode exercises the production DenseIndex adapter."
+  },
+  "dataset_name": "rag-introduction-manual",
+  "dataset_version": "0.1.0",
+  "created_at": "2026-09-18T14:28:49.833261Z",
+  "aggregate": {
+    "evaluated_cases": 14,
+    "excluded_unanswerable_cases": 4,
+    "missing_or_failed_predictions": 0,
+    "mrr": 1.0,
+    "ndcg_at_10": 1.0,
+    "cutoffs": [
+      {
+        "k": 1,
+        "recall": 0.9285714285714286,
+        "precision": 1.0
+      },
+      {
+        "k": 3,
+        "recall": 1.0,
+        "precision": 0.38095238095238093
+      },
+      {
+        "k": 5,
+        "recall": 1.0,
+        "precision": 0.2285714285714286
+      },
+      {
+        "k": 10,
+        "recall": 1.0,
+        "precision": 0.1142857142857143
+      }
+    ],
+    "latency_p50_ms": 4.707949934527278,
+    "latency_p95_ms": 6.405680032912641
+  },
+  "by_question_type": {
+    "cross_paragraph": {
+      "evaluated_cases": 2,
+      "excluded_unanswerable_cases": 0,
+      "missing_or_failed_predictions": 0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.6666666666666666
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.4
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.2
+        }
+      ],
+      "latency_p50_ms": 5.14430005569011,
+      "latency_p95_ms": 5.3090900531969965
+    },
+    "definition": {
+      "evaluated_cases": 1,
+      "excluded_unanswerable_cases": 0,
+      "missing_or_failed_predictions": 0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "latency_p50_ms": 4.424500046297908,
+      "latency_p95_ms": 4.424500046297908
+    },
+    "distractor": {
+      "evaluated_cases": 2,
+      "excluded_unanswerable_cases": 0,
+      "missing_or_failed_predictions": 0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "latency_p50_ms": 4.5833500334993005,
+      "latency_p95_ms": 4.6971550094895065
+    },
+    "fact": {
+      "evaluated_cases": 6,
+      "excluded_unanswerable_cases": 0,
+      "missing_or_failed_predictions": 0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.20000000000000004
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.10000000000000002
+        }
+      ],
+      "latency_p50_ms": 4.6655499609187245,
+      "latency_p95_ms": 7.5007249834015965
+    },
+    "paraphrase": {
+      "evaluated_cases": 3,
+      "excluded_unanswerable_cases": 0,
+      "missing_or_failed_predictions": 0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.20000000000000004
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.10000000000000002
+        }
+      ],
+      "latency_p50_ms": 4.787999903783202,
+      "latency_p95_ms": 5.070599960163236
+    }
+  },
+  "cases": [
+    {
+      "case_id": "rag-manual-001",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 8.40819999575615,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-002",
+      "question_type": "paraphrase",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.608100047335029,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-003",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.440800053998828,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-004",
+      "question_type": "definition",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.424500046297908,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-005",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.778299946337938,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-006",
+      "question_type": "distractor",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.709800006821752,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-007",
+      "question_type": "paraphrase",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 5.101999966427684,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-008",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.625000059604645,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-009",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.706099862232804,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-010",
+      "question_type": "fact",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.451600136235356,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-011",
+      "question_type": "distractor",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.456900060176849,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-012",
+      "question_type": "paraphrase",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.3333333333333333
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.2
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.1
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.787999903783202,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-013",
+      "question_type": "cross_paragraph",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.6666666666666666
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.4
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.2
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 5.327400052919984,
+      "passed_at_10": true,
+      "error": null
+    },
+    {
+      "case_id": "rag-manual-014",
+      "question_type": "cross_paragraph",
+      "reciprocal_rank": 1.0,
+      "ndcg_at_10": 1.0,
+      "cutoffs": [
+        {
+          "k": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "k": 3,
+          "recall": 1.0,
+          "precision": 0.6666666666666666
+        },
+        {
+          "k": 5,
+          "recall": 1.0,
+          "precision": 0.4
+        },
+        {
+          "k": 10,
+          "recall": 1.0,
+          "precision": 0.2
+        }
+      ],
+      "first_relevant_rank": 1,
+      "latency_ms": 4.961200058460236,
+      "passed_at_10": true,
+      "error": null
+    }
+  ]
+}

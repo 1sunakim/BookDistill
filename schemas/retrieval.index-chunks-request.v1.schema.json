@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "Chunk": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "source_block_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Block Ids",
+          "type": "array"
+        },
+        "previous_chunk_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Chunk Id"
+        },
+        "next_chunk_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Chunk Id"
+        },
+        "token_count": {
+          "exclusiveMinimum": 0,
+          "title": "Token Count",
+          "type": "integer"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ContentType"
+        },
+        "chunk_version": {
+          "minLength": 1,
+          "title": "Chunk Version",
+          "type": "string"
+        },
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "text",
+        "raw_text",
+        "page_start",
+        "page_end",
+        "source_block_ids",
+        "token_count",
+        "content_type",
+        "chunk_version",
+        "checksum"
+      ],
+      "title": "Chunk",
+      "type": "object"
+    },
+    "ContentType": {
+      "enum": [
+        "title",
+        "heading",
+        "paragraph",
+        "list",
+        "table",
+        "figure_caption",
+        "formula",
+        "header",
+        "footer",
+        "page_number",
+        "other"
+      ],
+      "title": "ContentType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Only integration boundary required from document processing.",
+  "properties": {
+    "chunks": {
+      "items": {
+        "$ref": "#/$defs/Chunk"
+      },
+      "minItems": 1,
+      "title": "Chunks",
+      "type": "array"
+    },
+    "book_titles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "format": "uuid"
+      },
+      "title": "Book Titles",
+      "type": "object"
+    }
+  },
+  "required": [
+    "chunks"
+  ],
+  "title": "IndexChunksRequest",
+  "type": "object"
+}

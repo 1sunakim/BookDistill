@@ -1,0 +1,247 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "rag-introduction-manual",
+  "dataset_version": "0.1.0",
+  "predictions": [
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-001",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 8.40819999575615,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-002",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.608100047335029,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-003",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.440800053998828,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-004",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.424500046297908,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-005",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.778299946337938,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-006",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.709800006821752,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-007",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 5.101999966427684,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-008",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.625000059604645,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-009",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.706099862232804,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-010",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.451600136235356,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-011",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.456900060176849,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-012",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        }
+      ],
+      "latency_ms": 4.787999903783202,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-013",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 5.327400052919984,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-014",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 4.961200058460236,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-015",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 4.4790999963879585,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-016",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 3.9816999342292547,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-017",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 4.010300152003765,
+      "error": null
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "rag-manual-018",
+      "retrieved": [
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000001",
+          "score": 0.01639344262295082
+        },
+        {
+          "chunk_id": "50000000-0000-4000-8000-000000000002",
+          "score": 0.016129032258064516
+        }
+      ],
+      "latency_ms": 4.430299857631326,
+      "error": null
+    }
+  ]
+}

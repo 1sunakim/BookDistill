@@ -1,0 +1,267 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "evidence_id": {
+          "format": "uuid",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "book_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Book Title"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "dense_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Score"
+        },
+        "dense_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Rank"
+        },
+        "sparse_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Score"
+        },
+        "sparse_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Rank"
+        },
+        "fusion_score": {
+          "minimum": 0,
+          "title": "Fusion Score",
+          "type": "number"
+        },
+        "fusion_rank": {
+          "minimum": 1,
+          "title": "Fusion Rank",
+          "type": "integer"
+        },
+        "rerank_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Score"
+        },
+        "final_rank": {
+          "minimum": 1,
+          "title": "Final Rank",
+          "type": "integer"
+        },
+        "retrieval_version": {
+          "minLength": 1,
+          "title": "Retrieval Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "page_start",
+        "page_end",
+        "text",
+        "fusion_score",
+        "fusion_rank",
+        "final_rank",
+        "retrieval_version"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "GenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "default": 0.0,
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "max_output_tokens": {
+          "default": 1200,
+          "maximum": 16000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "GenerationConfig",
+      "type": "object"
+    },
+    "KnowledgePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "language": {
+          "default": "zh-CN",
+          "maxLength": 35,
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "maximum_points": {
+          "default": 12,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Maximum Points",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "KnowledgePayload",
+      "type": "object"
+    },
+    "TraceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "trace_id"
+      ],
+      "title": "TraceContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trace_context": {
+      "$ref": "#/$defs/TraceContext"
+    },
+    "payload": {
+      "$ref": "#/$defs/KnowledgePayload"
+    },
+    "generation_config": {
+      "$ref": "#/$defs/GenerationConfig"
+    }
+  },
+  "required": [
+    "trace_context",
+    "payload"
+  ],
+  "title": "KnowledgeRequest",
+  "type": "object"
+}

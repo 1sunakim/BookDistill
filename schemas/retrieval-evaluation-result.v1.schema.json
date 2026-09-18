@@ -1,0 +1,376 @@
+{
+  "$defs": {
+    "AggregateRetrievalMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluated_cases": {
+          "minimum": 0,
+          "title": "Evaluated Cases",
+          "type": "integer"
+        },
+        "excluded_unanswerable_cases": {
+          "minimum": 0,
+          "title": "Excluded Unanswerable Cases",
+          "type": "integer"
+        },
+        "missing_or_failed_predictions": {
+          "minimum": 0,
+          "title": "Missing Or Failed Predictions",
+          "type": "integer"
+        },
+        "mrr": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Mrr",
+          "type": "number"
+        },
+        "ndcg_at_10": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Ndcg At 10",
+          "type": "number"
+        },
+        "cutoffs": {
+          "items": {
+            "$ref": "#/$defs/CutoffMetric"
+          },
+          "title": "Cutoffs",
+          "type": "array"
+        },
+        "latency_p50_ms": {
+          "minimum": 0,
+          "title": "Latency P50 Ms",
+          "type": "number"
+        },
+        "latency_p95_ms": {
+          "minimum": 0,
+          "title": "Latency P95 Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "evaluated_cases",
+        "excluded_unanswerable_cases",
+        "missing_or_failed_predictions",
+        "mrr",
+        "ndcg_at_10",
+        "cutoffs",
+        "latency_p50_ms",
+        "latency_p95_ms"
+      ],
+      "title": "AggregateRetrievalMetrics",
+      "type": "object"
+    },
+    "CaseRetrievalMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "question_type": {
+          "$ref": "#/$defs/QuestionType"
+        },
+        "reciprocal_rank": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Reciprocal Rank",
+          "type": "number"
+        },
+        "ndcg_at_10": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Ndcg At 10",
+          "type": "number"
+        },
+        "cutoffs": {
+          "items": {
+            "$ref": "#/$defs/CutoffMetric"
+          },
+          "title": "Cutoffs",
+          "type": "array"
+        },
+        "first_relevant_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Relevant Rank"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "passed_at_10": {
+          "title": "Passed At 10",
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "case_id",
+        "question_type",
+        "reciprocal_rank",
+        "ndcg_at_10",
+        "cutoffs",
+        "latency_ms",
+        "passed_at_10"
+      ],
+      "title": "CaseRetrievalMetrics",
+      "type": "object"
+    },
+    "CutoffMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "k": {
+          "minimum": 1,
+          "title": "K",
+          "type": "integer"
+        },
+        "recall": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Recall",
+          "type": "number"
+        },
+        "precision": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Precision",
+          "type": "number"
+        }
+      },
+      "required": [
+        "k",
+        "recall",
+        "precision"
+      ],
+      "title": "CutoffMetric",
+      "type": "object"
+    },
+    "ExperimentConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "experiment_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Experiment Id",
+          "type": "string"
+        },
+        "dataset_version": {
+          "minLength": 1,
+          "title": "Dataset Version",
+          "type": "string"
+        },
+        "retrieval_variant": {
+          "enum": [
+            "sparse",
+            "dense",
+            "hybrid",
+            "hybrid_rerank",
+            "external"
+          ],
+          "title": "Retrieval Variant",
+          "type": "string"
+        },
+        "parser_version": {
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "chunk_version": {
+          "minLength": 1,
+          "title": "Chunk Version",
+          "type": "string"
+        },
+        "embedding_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Embedding Model"
+        },
+        "sparse_config": {
+          "additionalProperties": true,
+          "title": "Sparse Config",
+          "type": "object"
+        },
+        "fusion_config": {
+          "additionalProperties": true,
+          "title": "Fusion Config",
+          "type": "object"
+        },
+        "reranker_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reranker Model"
+        },
+        "llm_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Model"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "generation_config": {
+          "additionalProperties": true,
+          "title": "Generation Config",
+          "type": "object"
+        },
+        "code_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code Version"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "dataset_version",
+        "retrieval_variant",
+        "parser_version",
+        "chunk_version"
+      ],
+      "title": "ExperimentConfig",
+      "type": "object"
+    },
+    "QuestionType": {
+      "enum": [
+        "fact",
+        "definition",
+        "paraphrase",
+        "entity_or_number",
+        "cross_paragraph",
+        "cross_chapter",
+        "multi_book",
+        "unanswerable",
+        "distractor"
+      ],
+      "title": "QuestionType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "experiment": {
+      "$ref": "#/$defs/ExperimentConfig"
+    },
+    "dataset_name": {
+      "title": "Dataset Name",
+      "type": "string"
+    },
+    "dataset_version": {
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "aggregate": {
+      "$ref": "#/$defs/AggregateRetrievalMetrics"
+    },
+    "by_question_type": {
+      "additionalProperties": {
+        "$ref": "#/$defs/AggregateRetrievalMetrics"
+      },
+      "title": "By Question Type",
+      "type": "object"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/CaseRetrievalMetrics"
+      },
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "experiment",
+    "dataset_name",
+    "dataset_version",
+    "created_at",
+    "aggregate",
+    "by_question_type",
+    "cases"
+  ],
+  "title": "RetrievalEvaluationResult",
+  "type": "object"
+}

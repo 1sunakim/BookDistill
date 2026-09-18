@@ -1,0 +1,980 @@
+{
+  "$defs": {
+    "Book": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "authors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "language": {
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "original_file_name": {
+          "minLength": 1,
+          "title": "Original File Name",
+          "type": "string"
+        },
+        "mime_type": {
+          "const": "application/pdf",
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "size_bytes": {
+          "exclusiveMinimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "storage_uri": {
+          "minLength": 1,
+          "title": "Storage Uri",
+          "type": "string"
+        },
+        "page_count": {
+          "exclusiveMinimum": 0,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/BookStatus"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "book_id",
+        "title",
+        "language",
+        "original_file_name",
+        "mime_type",
+        "size_bytes",
+        "sha256",
+        "storage_uri",
+        "page_count",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "Book",
+      "type": "object"
+    },
+    "BookStatus": {
+      "enum": [
+        "uploaded",
+        "validating",
+        "parsing",
+        "structuring",
+        "chunking",
+        "indexing",
+        "ready",
+        "failed",
+        "cancelled"
+      ],
+      "title": "BookStatus",
+      "type": "string"
+    },
+    "BoundingBox": {
+      "additionalProperties": false,
+      "description": "Rectangle in PDF points, measured from the page's top-left corner.",
+      "properties": {
+        "x0": {
+          "minimum": 0,
+          "title": "X0",
+          "type": "number"
+        },
+        "y0": {
+          "minimum": 0,
+          "title": "Y0",
+          "type": "number"
+        },
+        "x1": {
+          "exclusiveMinimum": 0,
+          "title": "X1",
+          "type": "number"
+        },
+        "y1": {
+          "exclusiveMinimum": 0,
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "Chapter": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "normalized_title": {
+          "minLength": 1,
+          "title": "Normalized Title",
+          "type": "string"
+        },
+        "level": {
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "order_index": {
+          "minimum": 0,
+          "title": "Order Index",
+          "type": "integer"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "source_block_id": {
+          "format": "uuid",
+          "title": "Source Block Id",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "manually_verified": {
+          "default": false,
+          "title": "Manually Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chapter_id",
+        "book_id",
+        "title",
+        "normalized_title",
+        "level",
+        "order_index",
+        "page_start",
+        "page_end",
+        "source_block_id",
+        "confidence"
+      ],
+      "title": "Chapter",
+      "type": "object"
+    },
+    "Chunk": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "source_block_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Block Ids",
+          "type": "array"
+        },
+        "previous_chunk_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Chunk Id"
+        },
+        "next_chunk_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Chunk Id"
+        },
+        "token_count": {
+          "exclusiveMinimum": 0,
+          "title": "Token Count",
+          "type": "integer"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ContentType"
+        },
+        "chunk_version": {
+          "minLength": 1,
+          "title": "Chunk Version",
+          "type": "string"
+        },
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "text",
+        "raw_text",
+        "page_start",
+        "page_end",
+        "source_block_ids",
+        "token_count",
+        "content_type",
+        "chunk_version",
+        "checksum"
+      ],
+      "title": "Chunk",
+      "type": "object"
+    },
+    "ContentType": {
+      "enum": [
+        "title",
+        "heading",
+        "paragraph",
+        "list",
+        "table",
+        "figure_caption",
+        "formula",
+        "header",
+        "footer",
+        "page_number",
+        "other"
+      ],
+      "title": "ContentType",
+      "type": "string"
+    },
+    "ErrorCategory": {
+      "enum": [
+        "validation",
+        "unsupported",
+        "parsing",
+        "ocr",
+        "structuring",
+        "chunking",
+        "storage",
+        "internal"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "ErrorDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "error_id": {
+          "format": "uuid",
+          "title": "Error Id",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]+$",
+          "title": "Code",
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/ErrorCategory"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/ProcessingStage"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "trace_id": {
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error_id",
+        "code",
+        "category",
+        "message",
+        "stage",
+        "retryable",
+        "trace_id",
+        "occurred_at"
+      ],
+      "title": "ErrorDetail",
+      "type": "object"
+    },
+    "JobStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "retrying",
+        "cancelled"
+      ],
+      "title": "JobStatus",
+      "type": "string"
+    },
+    "Page": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "page_index": {
+          "minimum": 0,
+          "title": "Page Index",
+          "type": "integer"
+        },
+        "printed_page_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printed Page Number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "rotation": {
+          "default": 0,
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "page_type": {
+          "enum": [
+            "text",
+            "scanned",
+            "mixed"
+          ],
+          "title": "Page Type",
+          "type": "string"
+        },
+        "ocr_used": {
+          "default": false,
+          "title": "Ocr Used",
+          "type": "boolean"
+        },
+        "quality_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "blocks": {
+          "items": {
+            "$ref": "#/$defs/TextBlock"
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "page_index",
+        "width",
+        "height",
+        "page_type",
+        "blocks"
+      ],
+      "title": "Page",
+      "type": "object"
+    },
+    "ParsedDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "parser_name": {
+          "minLength": 1,
+          "title": "Parser Name",
+          "type": "string"
+        },
+        "parser_version": {
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "parse_config_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Parse Config Sha256",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "$ref": "#/$defs/Page"
+          },
+          "title": "Pages",
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Resources",
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "book_id",
+        "parser_name",
+        "parser_version",
+        "parse_config_sha256",
+        "pages",
+        "created_at"
+      ],
+      "title": "ParsedDocument",
+      "type": "object"
+    },
+    "ParsingJob": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "job_id": {
+          "format": "uuid",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/JobStatus"
+        },
+        "current_stage": {
+          "$ref": "#/$defs/ProcessingStage"
+        },
+        "progress_percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Progress Percent",
+          "type": "integer"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "max_attempts": {
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "completed_stages": {
+          "items": {
+            "$ref": "#/$defs/ProcessingStage"
+          },
+          "title": "Completed Stages",
+          "type": "array"
+        },
+        "checkpoint": {
+          "additionalProperties": true,
+          "title": "Checkpoint",
+          "type": "object"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "book_id",
+        "status",
+        "current_stage",
+        "progress_percent",
+        "attempt",
+        "max_attempts",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "ParsingJob",
+      "type": "object"
+    },
+    "ProcessingStage": {
+      "enum": [
+        "validate",
+        "classify",
+        "parse",
+        "clean",
+        "structure",
+        "chunk",
+        "quality_check"
+      ],
+      "title": "ProcessingStage",
+      "type": "string"
+    },
+    "TextBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "block_id": {
+          "format": "uuid",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "page_index": {
+          "minimum": 0,
+          "title": "Page Index",
+          "type": "integer"
+        },
+        "block_index": {
+          "minimum": 0,
+          "title": "Block Index",
+          "type": "integer"
+        },
+        "reading_order": {
+          "minimum": 0,
+          "title": "Reading Order",
+          "type": "integer"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ContentType"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/BoundingBox"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "enum": [
+            "text_layer",
+            "ocr"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        }
+      },
+      "required": [
+        "block_id",
+        "page_index",
+        "block_index",
+        "reading_order",
+        "content_type",
+        "raw_text",
+        "text",
+        "bbox",
+        "source"
+      ],
+      "title": "TextBlock",
+      "type": "object"
+    },
+    "TextStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "font_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Name"
+        },
+        "font_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size"
+        },
+        "bold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bold"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        }
+      },
+      "title": "TextStyle",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A transport fixture and cross-object integrity boundary.\n\nOnline APIs may return the component models separately. This aggregate is\nuseful for fixtures, exports, integration tests, and reproducible evaluation.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "book": {
+      "$ref": "#/$defs/Book"
+    },
+    "document": {
+      "$ref": "#/$defs/ParsedDocument"
+    },
+    "chapters": {
+      "items": {
+        "$ref": "#/$defs/Chapter"
+      },
+      "title": "Chapters",
+      "type": "array"
+    },
+    "chunks": {
+      "items": {
+        "$ref": "#/$defs/Chunk"
+      },
+      "title": "Chunks",
+      "type": "array"
+    },
+    "job": {
+      "$ref": "#/$defs/ParsingJob"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/ErrorDetail"
+      },
+      "title": "Errors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "book",
+    "document",
+    "chapters",
+    "chunks",
+    "job"
+  ],
+  "title": "DocumentProcessingSnapshot",
+  "type": "object"
+}

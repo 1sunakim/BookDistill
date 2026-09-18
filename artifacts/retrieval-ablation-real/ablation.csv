@@ -1,0 +1,5 @@
+﻿variant,experiment_id,recall_at_10,mrr,ndcg_at_10,latency_p50_ms,latency_p95_ms,failed_predictions,recall_delta_vs_sparse,mrr_delta_vs_sparse,ndcg_delta_vs_sparse,p95_delta_vs_sparse_ms
+sparse,rag-intro-sparse-real-001,1.0,1.0,1.0,0.16585004050284624,0.5789451068267223,0,0.0,0.0,0.0,0.0
+dense,rag-intro-dense-real-001,1.0,1.0,1.0,4.707949934527278,6.405680032912641,0,0.0,0.0,0.0,5.826734926085918
+hybrid,rag-intro-hybrid-real-001,1.0,1.0,1.0,4.6859499998390675,5.756405007559806,0,0.0,0.0,0.0,5.1774599007330835
+hybrid_rerank,rag-intro-hybrid_rerank-real-001,1.0,1.0,1.0,13.494649901986122,18.915889970958233,0,0.0,0.0,0.0,18.33694486413151

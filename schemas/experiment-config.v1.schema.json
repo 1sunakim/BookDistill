@@ -1,0 +1,138 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "experiment_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "dataset_version": {
+      "minLength": 1,
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "retrieval_variant": {
+      "enum": [
+        "sparse",
+        "dense",
+        "hybrid",
+        "hybrid_rerank",
+        "external"
+      ],
+      "title": "Retrieval Variant",
+      "type": "string"
+    },
+    "parser_version": {
+      "minLength": 1,
+      "title": "Parser Version",
+      "type": "string"
+    },
+    "chunk_version": {
+      "minLength": 1,
+      "title": "Chunk Version",
+      "type": "string"
+    },
+    "embedding_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Embedding Model"
+    },
+    "sparse_config": {
+      "additionalProperties": true,
+      "title": "Sparse Config",
+      "type": "object"
+    },
+    "fusion_config": {
+      "additionalProperties": true,
+      "title": "Fusion Config",
+      "type": "object"
+    },
+    "reranker_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reranker Model"
+    },
+    "llm_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Llm Model"
+    },
+    "prompt_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prompt Version"
+    },
+    "generation_config": {
+      "additionalProperties": true,
+      "title": "Generation Config",
+      "type": "object"
+    },
+    "code_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Code Version"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "experiment_id",
+    "dataset_version",
+    "retrieval_variant",
+    "parser_version",
+    "chunk_version"
+  ],
+  "title": "ExperimentConfig",
+  "type": "object"
+}

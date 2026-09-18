@@ -1,0 +1,220 @@
+{
+  "$defs": {
+    "DatasetSplit": {
+      "enum": [
+        "smoke",
+        "dev",
+        "test"
+      ],
+      "title": "DatasetSplit",
+      "type": "string"
+    },
+    "EvaluationCase": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "question_type": {
+          "$ref": "#/$defs/QuestionType"
+        },
+        "book_scope": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Book Scope",
+          "type": "array"
+        },
+        "chapter_scope": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Chapter Scope",
+          "type": "array"
+        },
+        "reference_answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Answer"
+        },
+        "relevant_chunk_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Relevant Chunk Ids",
+          "type": "array"
+        },
+        "relevant_page_ranges": {
+          "items": {
+            "$ref": "#/$defs/PageRange"
+          },
+          "title": "Relevant Page Ranges",
+          "type": "array"
+        },
+        "difficulty": {
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ],
+          "title": "Difficulty",
+          "type": "string"
+        },
+        "annotator": {
+          "minLength": 1,
+          "title": "Annotator",
+          "type": "string"
+        },
+        "review_status": {
+          "enum": [
+            "draft",
+            "reviewed",
+            "approved"
+          ],
+          "title": "Review Status",
+          "type": "string"
+        },
+        "is_answerable": {
+          "default": true,
+          "title": "Is Answerable",
+          "type": "boolean"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "question",
+        "question_type",
+        "book_scope",
+        "difficulty",
+        "annotator",
+        "review_status"
+      ],
+      "title": "EvaluationCase",
+      "type": "object"
+    },
+    "PageRange": {
+      "additionalProperties": false,
+      "properties": {
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "book_id",
+        "page_start",
+        "page_end"
+      ],
+      "title": "PageRange",
+      "type": "object"
+    },
+    "QuestionType": {
+      "enum": [
+        "fact",
+        "definition",
+        "paraphrase",
+        "entity_or_number",
+        "cross_paragraph",
+        "cross_chapter",
+        "multi_book",
+        "unanswerable",
+        "distractor"
+      ],
+      "title": "QuestionType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "dataset_name": {
+      "minLength": 1,
+      "title": "Dataset Name",
+      "type": "string"
+    },
+    "dataset_version": {
+      "minLength": 1,
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "split": {
+      "$ref": "#/$defs/DatasetSplit"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/EvaluationCase"
+      },
+      "minItems": 1,
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "dataset_name",
+    "dataset_version",
+    "split",
+    "cases"
+  ],
+  "title": "EvaluationDataset",
+  "type": "object"
+}

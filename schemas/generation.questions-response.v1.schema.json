@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "ArtifactTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "model_provider": {
+          "title": "Model Provider",
+          "type": "string"
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/ModelUsage"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "provider_request_id": {
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "repair_attempted": {
+          "default": false,
+          "title": "Repair Attempted",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_provider",
+        "model_name",
+        "prompt_version",
+        "usage",
+        "latency_ms",
+        "provider_request_id",
+        "created_at"
+      ],
+      "title": "ArtifactTrace",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "format": "uuid",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "book_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Book Title"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "page_start",
+        "page_end",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "GeneratedQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "stem": {
+          "minLength": 1,
+          "title": "Stem",
+          "type": "string"
+        },
+        "question_type": {
+          "enum": [
+            "fact",
+            "concept",
+            "comparison",
+            "application",
+            "true_false",
+            "multiple_choice"
+          ],
+          "title": "Question Type",
+          "type": "string"
+        },
+        "difficulty": {
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ],
+          "title": "Difficulty",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "answer": {
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        },
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stem",
+        "question_type",
+        "difficulty",
+        "answer",
+        "explanation",
+        "evidence_ids"
+      ],
+      "title": "GeneratedQuestion",
+      "type": "object"
+    },
+    "ModelUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        }
+      },
+      "title": "ModelUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/GeneratedQuestion"
+      },
+      "minItems": 1,
+      "title": "Questions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "trace": {
+      "$ref": "#/$defs/ArtifactTrace"
+    }
+  },
+  "required": [
+    "questions",
+    "citations",
+    "trace"
+  ],
+  "title": "QuestionResponse",
+  "type": "object"
+}

@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "rag-introduction-manual",
+  "dataset_version": "0.1.0",
+  "created_at": "2026-09-18T14:28:50.202396Z",
+  "variants": [
+    {
+      "retrieval_variant": "sparse",
+      "experiment_id": "rag-intro-sparse-real-001",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "latency_p50_ms": 0.16585004050284624,
+        "latency_p95_ms": 0.5789451068267223,
+        "missing_or_failed_predictions": 0
+      },
+      "recall_at_10_delta_vs_sparse": 0.0,
+      "mrr_delta_vs_sparse": 0.0,
+      "ndcg_at_10_delta_vs_sparse": 0.0,
+      "latency_p95_delta_vs_sparse_ms": 0.0
+    },
+    {
+      "retrieval_variant": "dense",
+      "experiment_id": "rag-intro-dense-real-001",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "latency_p50_ms": 4.707949934527278,
+        "latency_p95_ms": 6.405680032912641,
+        "missing_or_failed_predictions": 0
+      },
+      "recall_at_10_delta_vs_sparse": 0.0,
+      "mrr_delta_vs_sparse": 0.0,
+      "ndcg_at_10_delta_vs_sparse": 0.0,
+      "latency_p95_delta_vs_sparse_ms": 5.826734926085918
+    },
+    {
+      "retrieval_variant": "hybrid",
+      "experiment_id": "rag-intro-hybrid-real-001",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "latency_p50_ms": 4.6859499998390675,
+        "latency_p95_ms": 5.756405007559806,
+        "missing_or_failed_predictions": 0
+      },
+      "recall_at_10_delta_vs_sparse": 0.0,
+      "mrr_delta_vs_sparse": 0.0,
+      "ndcg_at_10_delta_vs_sparse": 0.0,
+      "latency_p95_delta_vs_sparse_ms": 5.1774599007330835
+    },
+    {
+      "retrieval_variant": "hybrid_rerank",
+      "experiment_id": "rag-intro-hybrid_rerank-real-001",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "latency_p50_ms": 13.494649901986122,
+        "latency_p95_ms": 18.915889970958233,
+        "missing_or_failed_predictions": 0
+      },
+      "recall_at_10_delta_vs_sparse": 0.0,
+      "mrr_delta_vs_sparse": 0.0,
+      "ndcg_at_10_delta_vs_sparse": 0.0,
+      "latency_p95_delta_vs_sparse_ms": 18.33694486413151
+    }
+  ],
+  "best_recall_at_10_variant": "sparse",
+  "best_ndcg_at_10_variant": "sparse",
+  "fastest_p95_variant": "sparse"
+}

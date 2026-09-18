@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "error_id": "70000000-0000-4000-8000-000000000001",
+  "code": "OCR_LOW_CONFIDENCE",
+  "category": "ocr",
+  "message": "第 18 页 OCR 平均置信度低于质量阈值。",
+  "stage": "parse",
+  "retryable": false,
+  "page_index": 17,
+  "details": {
+    "mean_confidence": 0.54,
+    "threshold": 0.75,
+    "recommended_action": "manual_review"
+  },
+  "trace_id": "trace-01K5B8RCQ5G8N4X2W9K7H3M6PV",
+  "occurred_at": "2026-09-17T08:00:06Z"
+}
+

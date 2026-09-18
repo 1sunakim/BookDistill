@@ -1,0 +1,643 @@
+{
+  "$defs": {
+    "AnswerClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "evidence_ids"
+      ],
+      "title": "AnswerClaim",
+      "type": "object"
+    },
+    "CandidateTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "dense_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Score"
+        },
+        "dense_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Rank"
+        },
+        "sparse_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Score"
+        },
+        "sparse_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Rank"
+        },
+        "fusion_score": {
+          "minimum": 0,
+          "title": "Fusion Score",
+          "type": "number"
+        },
+        "fusion_rank": {
+          "minimum": 1,
+          "title": "Fusion Rank",
+          "type": "integer"
+        },
+        "rerank_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Score"
+        },
+        "final_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Rank"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "fusion_score",
+        "fusion_rank"
+      ],
+      "title": "CandidateTrace",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "format": "uuid",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "book_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Book Title"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "page_start",
+        "page_end",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "evidence_id": {
+          "format": "uuid",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "book_id": {
+          "format": "uuid",
+          "title": "Book Id",
+          "type": "string"
+        },
+        "book_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Book Title"
+        },
+        "chapter_id": {
+          "format": "uuid",
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "chapter_path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chapter Path",
+          "type": "array"
+        },
+        "page_start": {
+          "minimum": 0,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 0,
+          "title": "Page End",
+          "type": "integer"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "dense_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Score"
+        },
+        "dense_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Rank"
+        },
+        "sparse_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Score"
+        },
+        "sparse_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Rank"
+        },
+        "fusion_score": {
+          "minimum": 0,
+          "title": "Fusion Score",
+          "type": "number"
+        },
+        "fusion_rank": {
+          "minimum": 1,
+          "title": "Fusion Rank",
+          "type": "integer"
+        },
+        "rerank_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Score"
+        },
+        "final_rank": {
+          "minimum": 1,
+          "title": "Final Rank",
+          "type": "integer"
+        },
+        "retrieval_version": {
+          "minLength": 1,
+          "title": "Retrieval Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "chunk_id",
+        "book_id",
+        "chapter_id",
+        "chapter_path",
+        "page_start",
+        "page_end",
+        "text",
+        "fusion_score",
+        "fusion_rank",
+        "final_rank",
+        "retrieval_version"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ModelUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        }
+      },
+      "title": "ModelUsage",
+      "type": "object"
+    },
+    "RagAnswerResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/AnswerClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "insufficient_evidence": {
+          "title": "Insufficient Evidence",
+          "type": "boolean"
+        },
+        "follow_up": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Follow Up"
+        },
+        "model_provider": {
+          "title": "Model Provider",
+          "type": "string"
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/ModelUsage"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "provider_request_id": {
+          "title": "Provider Request Id",
+          "type": "string"
+        },
+        "repair_attempted": {
+          "default": false,
+          "title": "Repair Attempted",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "answer",
+        "claims",
+        "citations",
+        "insufficient_evidence",
+        "model_provider",
+        "model_name",
+        "prompt_version",
+        "usage",
+        "latency_ms",
+        "provider_request_id",
+        "created_at"
+      ],
+      "title": "RagAnswerResponse",
+      "type": "object"
+    },
+    "RetrievalResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "trace": {
+          "$ref": "#/$defs/RetrievalTrace"
+        }
+      },
+      "required": [
+        "request_id",
+        "evidence",
+        "trace"
+      ],
+      "title": "RetrievalResponse",
+      "type": "object"
+    },
+    "RetrievalTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "original_query": {
+          "title": "Original Query",
+          "type": "string"
+        },
+        "normalized_query": {
+          "title": "Normalized Query",
+          "type": "string"
+        },
+        "retrieval_version": {
+          "title": "Retrieval Version",
+          "type": "string"
+        },
+        "retrieval_variant": {
+          "enum": [
+            "sparse",
+            "dense",
+            "hybrid",
+            "hybrid_rerank"
+          ],
+          "title": "Retrieval Variant",
+          "type": "string"
+        },
+        "indexed_chunk_count": {
+          "minimum": 0,
+          "title": "Indexed Chunk Count",
+          "type": "integer"
+        },
+        "dense_latency_ms": {
+          "minimum": 0,
+          "title": "Dense Latency Ms",
+          "type": "number"
+        },
+        "sparse_latency_ms": {
+          "minimum": 0,
+          "title": "Sparse Latency Ms",
+          "type": "number"
+        },
+        "fusion_latency_ms": {
+          "minimum": 0,
+          "title": "Fusion Latency Ms",
+          "type": "number"
+        },
+        "rerank_latency_ms": {
+          "minimum": 0,
+          "title": "Rerank Latency Ms",
+          "type": "number"
+        },
+        "total_latency_ms": {
+          "minimum": 0,
+          "title": "Total Latency Ms",
+          "type": "number"
+        },
+        "rerank_degraded": {
+          "default": false,
+          "title": "Rerank Degraded",
+          "type": "boolean"
+        },
+        "rerank_applied": {
+          "default": false,
+          "title": "Rerank Applied",
+          "type": "boolean"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/CandidateTrace"
+          },
+          "title": "Candidates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "original_query",
+        "normalized_query",
+        "retrieval_version",
+        "retrieval_variant",
+        "indexed_chunk_count",
+        "dense_latency_ms",
+        "sparse_latency_ms",
+        "fusion_latency_ms",
+        "rerank_latency_ms",
+        "total_latency_ms",
+        "candidates"
+      ],
+      "title": "RetrievalTrace",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "retrieval": {
+      "$ref": "#/$defs/RetrievalResponse"
+    },
+    "answer": {
+      "$ref": "#/$defs/RagAnswerResponse"
+    }
+  },
+  "required": [
+    "retrieval",
+    "answer"
+  ],
+  "title": "RetrieveAndAnswerResponse",
+  "type": "object"
+}

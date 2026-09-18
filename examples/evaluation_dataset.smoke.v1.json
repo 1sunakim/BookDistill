@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "bookdistill-smoke",
+  "dataset_version": "1.0.0",
+  "split": "smoke",
+  "description": "Synthetic contract fixture; replace with reviewed book annotations.",
+  "cases": [
+    {
+      "schema_version": "1.0",
+      "case_id": "smoke-001",
+      "question": "示例概念的定义是什么？",
+      "question_type": "definition",
+      "book_scope": ["10000000-0000-0000-0000-000000000001"],
+      "chapter_scope": [],
+      "reference_answer": "仅用于验证评测管线。",
+      "relevant_chunk_ids": ["20000000-0000-0000-0000-000000000001"],
+      "relevant_page_ranges": [
+        {
+          "book_id": "10000000-0000-0000-0000-000000000001",
+          "page_start": 3,
+          "page_end": 3
+        }
+      ],
+      "difficulty": "easy",
+      "annotator": "fixture",
+      "review_status": "approved",
+      "is_answerable": true,
+      "tags": ["synthetic"]
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "smoke-002",
+      "question": "书中是否讨论了不存在的主题？",
+      "question_type": "unanswerable",
+      "book_scope": ["10000000-0000-0000-0000-000000000001"],
+      "chapter_scope": [],
+      "reference_answer": null,
+      "relevant_chunk_ids": [],
+      "relevant_page_ranges": [],
+      "difficulty": "medium",
+      "annotator": "fixture",
+      "review_status": "approved",
+      "is_answerable": false,
+      "tags": ["synthetic"]
+    }
+  ]
+}

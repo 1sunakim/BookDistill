@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "RetrievalConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "default": "hybrid_rerank",
+          "enum": [
+            "sparse",
+            "dense",
+            "hybrid",
+            "hybrid_rerank"
+          ],
+          "title": "Variant",
+          "type": "string"
+        },
+        "dense_top_k": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Dense Top K",
+          "type": "integer"
+        },
+        "sparse_top_k": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Sparse Top K",
+          "type": "integer"
+        },
+        "fusion_candidates": {
+          "default": 40,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Fusion Candidates",
+          "type": "integer"
+        },
+        "rerank_candidates": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Rerank Candidates",
+          "type": "integer"
+        },
+        "final_evidence": {
+          "default": 6,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Final Evidence",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "max_per_chapter": {
+          "default": 3,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Per Chapter",
+          "type": "integer"
+        }
+      },
+      "title": "RetrievalConfig",
+      "type": "object"
+    },
+    "RetrievalScope": {
+      "additionalProperties": false,
+      "properties": {
+        "book_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Book Ids",
+          "type": "array"
+        },
+        "chapter_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Chapter Ids",
+          "type": "array"
+        }
+      },
+      "title": "RetrievalScope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "format": "uuid",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "query": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/RetrievalScope"
+    },
+    "config": {
+      "$ref": "#/$defs/RetrievalConfig"
+    }
+  },
+  "required": [
+    "request_id",
+    "query"
+  ],
+  "title": "RetrievalRequest",
+  "type": "object"
+}

@@ -1,0 +1,13 @@
+{
+  "dense_model": "BAAI/bge-small-zh-v1.5",
+  "dense_dimension": 512,
+  "sparse": "BM25",
+  "fusion": "RRF(k=60)",
+  "reranker_model": "embedding-similarity:BAAI/bge-small-zh-v1.5",
+  "dense_index": "Qdrant local mode",
+  "dataset": "rag-introduction-manual",
+  "dataset_version": "0.1.0",
+  "answerable_cases": 14,
+  "unanswerable_cases": 4,
+  "limitation": "Two-page pilot dataset; metrics validate the pipeline, not production quality."
+}

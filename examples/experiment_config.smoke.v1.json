@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "smoke-hybrid-001",
+  "dataset_version": "1.0.0",
+  "retrieval_variant": "hybrid",
+  "parser_version": "fixture-parser-v1",
+  "chunk_version": "fixture-chunk-v1",
+  "embedding_model": "fixture-embedding-v1",
+  "sparse_config": {"name": "fixture-bm25"},
+  "fusion_config": {"method": "rrf", "rrf_k": 60},
+  "reranker_model": null,
+  "llm_model": null,
+  "prompt_version": null,
+  "generation_config": {},
+  "code_version": null,
+  "notes": "Synthetic smoke run only."
+}

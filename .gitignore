@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+data/
+*.db
+.runtime-check/
+.local-python311/
+python-*-embed-amd64.zip
+
+# Frontend dependencies and generated output
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/.sites-runtime/
+frontend/.wrangler/
+
+# Local tooling and logs
+coverage/
+htmlcov/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

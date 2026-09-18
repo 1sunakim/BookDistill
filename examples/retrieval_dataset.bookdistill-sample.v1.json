@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "bookdistill-sample",
+  "dataset_version": "1.0.0",
+  "split": "smoke",
+  "description": "端到端验证 Chunk 到 Evidence 再到检索指标的最小数据集。",
+  "cases": [
+    {
+      "schema_version": "1.0",
+      "case_id": "sample-001",
+      "question": "为什么大语言模型需要检索增强生成？",
+      "question_type": "paraphrase",
+      "book_scope": ["11111111-1111-4111-8111-111111111111"],
+      "chapter_scope": [],
+      "reference_answer": "模型参数知识存在时效性限制。",
+      "relevant_chunk_ids": ["50000000-0000-4000-8000-000000000001"],
+      "relevant_page_ranges": [{
+        "book_id": "11111111-1111-4111-8111-111111111111",
+        "page_start": 0,
+        "page_end": 0
+      }],
+      "difficulty": "easy",
+      "annotator": "fixture",
+      "review_status": "approved",
+      "is_answerable": true,
+      "tags": ["end-to-end"]
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "sample-002",
+      "question": "回答中的页码和章节应该由谁补全？",
+      "question_type": "fact",
+      "book_scope": ["11111111-1111-4111-8111-111111111111"],
+      "chapter_scope": ["40000000-0000-4000-8000-000000000002"],
+      "reference_answer": "由应用层根据稳定标识补全。",
+      "relevant_chunk_ids": ["50000000-0000-4000-8000-000000000002"],
+      "relevant_page_ranges": [{
+        "book_id": "11111111-1111-4111-8111-111111111111",
+        "page_start": 1,
+        "page_end": 1
+      }],
+      "difficulty": "easy",
+      "annotator": "fixture",
+      "review_status": "approved",
+      "is_answerable": true,
+      "tags": ["end-to-end", "scope"]
+    },
+    {
+      "schema_version": "1.0",
+      "case_id": "sample-003",
+      "question": "书中是否介绍了火星农业？",
+      "question_type": "unanswerable",
+      "book_scope": ["11111111-1111-4111-8111-111111111111"],
+      "chapter_scope": [],
+      "reference_answer": null,
+      "relevant_chunk_ids": [],
+      "relevant_page_ranges": [],
+      "difficulty": "medium",
+      "annotator": "fixture",
+      "review_status": "approved",
+      "is_answerable": false,
+      "tags": ["end-to-end"]
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "RetrievalPrediction": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "retrieved": {
+          "items": {
+            "$ref": "#/$defs/RetrievedItem"
+          },
+          "title": "Retrieved",
+          "type": "array"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "case_id",
+        "latency_ms"
+      ],
+      "title": "RetrievalPrediction",
+      "type": "object"
+    },
+    "RetrievedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "required": [
+        "chunk_id"
+      ],
+      "title": "RetrievedItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "dataset_name": {
+      "minLength": 1,
+      "title": "Dataset Name",
+      "type": "string"
+    },
+    "dataset_version": {
+      "minLength": 1,
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "predictions": {
+      "items": {
+        "$ref": "#/$defs/RetrievalPrediction"
+      },
+      "title": "Predictions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "dataset_name",
+    "dataset_version",
+    "predictions"
+  ],
+  "title": "RetrievalPredictionSet",
+  "type": "object"
+}

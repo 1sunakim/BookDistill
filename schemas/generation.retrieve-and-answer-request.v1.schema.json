@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "GenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "default": 0.0,
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "max_output_tokens": {
+          "default": 1200,
+          "maximum": 16000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "GenerationConfig",
+      "type": "object"
+    },
+    "RetrievalConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "default": "hybrid_rerank",
+          "enum": [
+            "sparse",
+            "dense",
+            "hybrid",
+            "hybrid_rerank"
+          ],
+          "title": "Variant",
+          "type": "string"
+        },
+        "dense_top_k": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Dense Top K",
+          "type": "integer"
+        },
+        "sparse_top_k": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Sparse Top K",
+          "type": "integer"
+        },
+        "fusion_candidates": {
+          "default": 40,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Fusion Candidates",
+          "type": "integer"
+        },
+        "rerank_candidates": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Rerank Candidates",
+          "type": "integer"
+        },
+        "final_evidence": {
+          "default": 6,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Final Evidence",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "max_per_chapter": {
+          "default": 3,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Per Chapter",
+          "type": "integer"
+        }
+      },
+      "title": "RetrievalConfig",
+      "type": "object"
+    },
+    "RetrievalScope": {
+      "additionalProperties": false,
+      "properties": {
+        "book_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Book Ids",
+          "type": "array"
+        },
+        "chapter_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Chapter Ids",
+          "type": "array"
+        }
+      },
+      "title": "RetrievalScope",
+      "type": "object"
+    },
+    "TraceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "format": "uuid",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "trace_id"
+      ],
+      "title": "TraceContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Composition contract; retrieval and generation remain separate internally.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trace_context": {
+      "$ref": "#/$defs/TraceContext"
+    },
+    "question": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/RetrievalScope"
+    },
+    "retrieval_config": {
+      "$ref": "#/$defs/RetrievalConfig"
+    },
+    "generation_config": {
+      "$ref": "#/$defs/GenerationConfig"
+    },
+    "language": {
+      "default": "zh-CN",
+      "maxLength": 35,
+      "minLength": 2,
+      "title": "Language",
+      "type": "string"
+    },
+    "max_answer_characters": {
+      "default": 3000,
+      "maximum": 20000,
+      "minimum": 1,
+      "title": "Max Answer Characters",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "trace_context",
+    "question"
+  ],
+  "title": "RetrieveAndAnswerRequest",
+  "type": "object"
+}

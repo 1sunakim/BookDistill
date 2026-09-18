@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "bookdistill-smoke",
+  "dataset_version": "1.0.0",
+  "predictions": [
+    {
+      "schema_version": "1.0",
+      "case_id": "smoke-001",
+      "retrieved": [
+        {"chunk_id": "20000000-0000-0000-0000-000000000002", "score": 0.91},
+        {"chunk_id": "20000000-0000-0000-0000-000000000001", "score": 0.87}
+      ],
+      "latency_ms": 12.5,
+      "error": null
+    }
+  ]
+}
