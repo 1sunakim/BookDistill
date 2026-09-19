@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
-qdrant = ["qdrant-client>=1.15,<2"]
+qdrant = ["qdrant-client>=1.15,<1.17"]
 models = ["fastembed>=0.8,<1"]
 local-llm = [
     "accelerate>=1.10,<2",

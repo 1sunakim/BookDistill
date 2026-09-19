@@ -10,6 +10,15 @@ docker compose up --build
 
 Compose 会启动 PostgreSQL、Redis、Qdrant、迁移任务、API、Worker 和 Beat。API 默认监听 `http://localhost:8000`，就绪检查为 `/health/ready`。
 
+如果当前网络无法访问 Docker Hub 或 PyPI，可在 `.env` 中覆盖构建来源后重新构建：
+
+```dotenv
+BOOKDISTILL_BASE_IMAGE=public.ecr.aws/docker/library/python:3.11-slim
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+这两个变量只影响镜像构建；未设置时仍使用 `python:3.11-slim` 和官方 PyPI。
+
 生产环境必须修改数据库密码和外部服务凭据，不要提交 `.env`。持久数据位于命名卷 `postgres_data`、`redis_data`、`qdrant_data`、`app_data` 和 `model_cache`。
 
 ## 前端
@@ -40,4 +49,3 @@ npm run build
 ## 模型配置
 
 默认 `BOOKDISTILL_LLM_PROVIDER=disabled`，问答与蒸馏会明确返回未配置错误。可选择 OpenAI-compatible API 或本地 Transformers 模型。Embedding/Reranker 模型首次启动可能下载到 `model_cache`，离线部署应提前准备缓存。
-
