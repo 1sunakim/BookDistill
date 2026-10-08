@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "run_mode": "local_mock_no_network",
+  "deepseek_request_sent": false,
+  "key_rotation_confirmed": false,
+  "content_redacted": true,
+  "notes": [
+    "Only minimal synthetic Evidence was used.",
+    "No API key or answer body is present in this report.",
+    "Refusal rate is not attributed to DeepSeek because retrieval quality is out of scope for this run."
+  ],
+  "cases": [
+    {"case": "answerable", "http_status": 200, "input_tokens": 100, "output_tokens": 40, "repair_attempted": false, "claims": 1, "citations": 1, "error_code": null},
+    {"case": "insufficient_evidence", "http_status": 200, "input_tokens": null, "output_tokens": null, "repair_attempted": false, "claims": 0, "citations": 0, "error_code": null},
+    {"case": "long_complete_answer", "http_status": 200, "input_tokens": 700, "output_tokens": 1100, "repair_attempted": false, "claims": 1, "citations": 1, "error_code": null},
+    {"case": "invalid_reference", "http_status": 422, "input_tokens": 90, "output_tokens": 30, "repair_attempted": false, "claims": 0, "citations": 0, "error_code": "INVALID_CITATION"},
+    {"case": "contradictory_state", "http_status": 422, "input_tokens": 95, "output_tokens": 35, "repair_attempted": false, "claims": 0, "citations": 0, "error_code": "MODEL_STATE_CONFLICT"},
+    {"case": "invalid_json_after_one_repair", "http_status": 422, "input_tokens": 200, "output_tokens": 21, "repair_attempted": true, "claims": 0, "citations": 0, "error_code": "INVALID_MODEL_OUTPUT"},
+    {"case": "truncated_at_1200", "http_status": 422, "input_tokens": 600, "output_tokens": 1200, "repair_attempted": false, "claims": 0, "citations": 0, "error_code": "MODEL_OUTPUT_TRUNCATED"}
+  ]
+}

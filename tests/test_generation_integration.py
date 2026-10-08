@@ -20,6 +20,7 @@ from bookdistill.generation import (
 )
 from bookdistill.settings import Settings
 from bookdistill.task_system.dispatch import NullDispatcher
+from tests.support import migrate_database
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +64,7 @@ class GenerationIntegrationTests(unittest.TestCase):
             storage_root=root / "data",
             queue_mode="none",
         )
+        migrate_database(settings.database_url)
         provider = StaticLLMProvider(evidence_aware_response)
         service = RagAnswerService(LLMGateway(provider, default_prompt_registry()))
         self.app = create_app(settings, NullDispatcher(), service)

@@ -60,6 +60,7 @@ from .evaluation import (
 from .generation import (
     AnswerClaim,
     Citation,
+    ConversationTurn,
     GENERATION_SCHEMA_VERSION,
     GenerationConfig,
     LLMRequest,
@@ -152,6 +153,7 @@ __all__ = [
     "RetrievedItem",
     "AnswerClaim",
     "Citation",
+    "ConversationTurn",
     "GENERATION_SCHEMA_VERSION",
     "GenerationConfig",
     "LLMRequest",

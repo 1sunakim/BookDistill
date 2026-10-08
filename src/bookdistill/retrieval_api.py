@@ -42,11 +42,11 @@ def create_app(engine: HybridRetrievalEngine | None = None) -> FastAPI:
     app = FastAPI(title="BookDistill Retrieval API", version="0.1.0")
     app.state.retrieval = retrieval
 
-    @app.get("/health/live")
+    @app.get("/api/v1/health/live")
     def live() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/health/ready")
+    @app.get("/api/v1/health/ready")
     def ready() -> dict[str, object]:
         return {"status": "ok", "indexed_chunks": retrieval.dense_index.count()}
 

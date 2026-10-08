@@ -25,6 +25,7 @@ from bookdistill.generation import (  # noqa: E402
 from bookdistill.api.app import create_app  # noqa: E402
 from bookdistill.settings import Settings  # noqa: E402
 from bookdistill.task_system.dispatch import NullDispatcher  # noqa: E402
+from tests.support import migrate_database  # noqa: E402
 
 
 BOOK_A = UUID("10000000-0000-0000-0000-000000000001")
@@ -147,6 +148,7 @@ class DistillationTests(unittest.TestCase):
                 database_url=f"sqlite:///{(root / 'test.db').as_posix()}",
                 storage_root=root / "data", queue_mode="none",
             )
+            migrate_database(settings.database_url)
             app = create_app(settings, NullDispatcher(), None, distillation)
             request = SummaryRequest(
                 trace_context=trace(),

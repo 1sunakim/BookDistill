@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "dataset_name": "ai-agents-in-depth-real-manual",
+  "dataset_version": "1.0.0",
+  "split": "dev",
+  "description": "真实 PDF《深入理解 AI Agent》人工逐段核对的问题集，覆盖中文、英文、同义改写与跨语言术语。",
+  "cases": [
+    {
+      "schema_version": "1.0", "case_id": "agent-real-001",
+      "question": "ReAct Agent 的运行流程是什么？", "question_type": "fact",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "模型在思考、调用工具行动、观察工具结果之间循环，并把结果追加到轨迹中，直到任务完成。",
+      "relevant_chunk_ids": ["522cd8e3-2f26-5df2-825b-05beeedd5ddd", "6b8da703-7f9a-561b-9e4d-7dc6d5107c91", "24deb312-d827-5ddc-b30b-8f00a758f04a", "136e9f9a-80d8-5ac4-9ad3-0a8d9357c0fb"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":20,"page_end":22}],
+      "difficulty":"easy", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","zh","react"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-002",
+      "question": "智能体怎样在思考、执行动作和查看结果之间循环？", "question_type": "paraphrase",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "它先推理下一步，调用工具，然后观察返回结果并继续推理。",
+      "relevant_chunk_ids": ["522cd8e3-2f26-5df2-825b-05beeedd5ddd", "6b8da703-7f9a-561b-9e4d-7dc6d5107c91", "24deb312-d827-5ddc-b30b-8f00a758f04a", "136e9f9a-80d8-5ac4-9ad3-0a8d9357c0fb"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":20,"page_end":22}],
+      "difficulty":"medium", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","zh","synonym"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-003",
+      "question": "What are the steps in the ReAct reasoning-action-observation loop?", "question_type": "paraphrase",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "Reason about the next step, act by calling a tool, observe the result, and repeat until completion.",
+      "relevant_chunk_ids": ["522cd8e3-2f26-5df2-825b-05beeedd5ddd", "6b8da703-7f9a-561b-9e4d-7dc6d5107c91", "24deb312-d827-5ddc-b30b-8f00a758f04a", "136e9f9a-80d8-5ac4-9ad3-0a8d9357c0fb"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":20,"page_end":22}],
+      "difficulty":"hard", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","en","cross-language"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-004",
+      "question": "Agent trajectory（轨迹）中保存哪些动态消息？", "question_type": "fact",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "轨迹保存用户消息、模型推理和回复、工具调用以及工具执行结果。",
+      "relevant_chunk_ids": ["522cd8e3-2f26-5df2-825b-05beeedd5ddd", "6b8da703-7f9a-561b-9e4d-7dc6d5107c91", "24deb312-d827-5ddc-b30b-8f00a758f04a", "136e9f9a-80d8-5ac4-9ad3-0a8d9357c0fb"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":20,"page_end":22}],
+      "difficulty":"medium", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","mixed-term"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-005",
+      "question": "大模型 API 消息列表有哪四种角色？", "question_type": "fact",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "system、user、assistant 和 tool。",
+      "relevant_chunk_ids": ["f723b618-17b5-510d-bdc5-8b68e36464e8"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":35,"page_end":36}],
+      "difficulty":"easy", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","zh","api"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-006",
+      "question": "Which four message roles are used by a large-model API?", "question_type": "paraphrase",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "system, user, assistant, and tool.",
+      "relevant_chunk_ids": ["f723b618-17b5-510d-bdc5-8b68e36464e8"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":35,"page_end":36}],
+      "difficulty":"hard", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","en","cross-language"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-007",
+      "question": "RAG 如何把外部知识库和生成模型组合起来？", "question_type": "definition",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "检索器从可更新的外部知识库找到相关片段，再把片段作为上下文交给生成模型回答。",
+      "relevant_chunk_ids": ["76fe6126-4afb-5f66-8a6e-7e189378fa8b", "7603d5d5-2a2c-53fd-a59a-03863b1390c2"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":82,"page_end":83}],
+      "difficulty":"easy", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","zh","rag"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-008",
+      "question": "How does retrieval-augmented generation use an external knowledge base?", "question_type": "paraphrase",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "It retrieves relevant passages from an updatable external knowledge base and injects them into the generator context.",
+      "relevant_chunk_ids": ["76fe6126-4afb-5f66-8a6e-7e189378fa8b", "7603d5d5-2a2c-53fd-a59a-03863b1390c2"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":82,"page_end":83}],
+      "difficulty":"hard", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","en","cross-language"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-009",
+      "question": "用户记忆能力的三层次评估框架分别是什么？", "question_type": "cross_paragraph",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "基础回忆、多会话消歧和主动服务/跨会话隐藏关联。",
+      "relevant_chunk_ids": ["19ae96f3-68ba-589c-9e47-2ff97a6c1848", "f7f85299-b932-5364-baca-e16060f32aa8"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":74,"page_end":75}],
+      "difficulty":"medium", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","zh","memory"]
+    },
+    {
+      "schema_version": "1.0", "case_id": "agent-real-010",
+      "question": "What is LLM-as-a-Judge and how should a rubric be used?", "question_type": "cross_paragraph",
+      "book_scope": ["78b3ca9f-6a80-430f-82be-e04deae9c41b"], "chapter_scope": [],
+      "reference_answer": "A judge model scores an answer against a concrete rubric with independently verifiable criteria, examples, boundaries, and veto conditions.",
+      "relevant_chunk_ids": ["bf9f0d80-391d-5705-aa71-12ba0cde3f40", "84a7acc7-8937-528d-b075-1a1523250e13", "a210d80f-9200-5011-b121-4f9d51dae9b6", "f8c45551-6879-557b-a428-633fe3e76d92", "dfd5486b-d75b-541e-a9b8-da176780f136"],
+      "relevant_page_ranges": [{"book_id":"78b3ca9f-6a80-430f-82be-e04deae9c41b","page_start":173,"page_end":175}],
+      "difficulty":"hard", "annotator":"codex-manual-2026-09-27", "review_status":"reviewed", "is_answerable":true, "tags":["real-pdf","en","cross-language","evaluation"]
+    }
+  ]
+}

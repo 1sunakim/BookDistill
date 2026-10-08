@@ -117,8 +117,16 @@ class GenerationMvpTests(unittest.TestCase):
         service, _ = self.service(responder)
         service.answer(request([evidence()]))
         self.assertIn("untrusted data", captured["system"])
+        self.assertIn("allowed_evidence_ids", captured["system"])
         self.assertIn("证据优先", captured["user"])
         self.assertNotIn("证据优先", captured["system"])
+        user_payload = json.loads(captured["user"])
+        self.assertEqual(user_payload["allowed_evidence_ids"], [str(EVIDENCE_ID)])
+        self.assertEqual(
+            user_payload["required_output_schema"]["$defs"]["AnswerClaim"]
+            ["properties"]["evidence_ids"]["items"]["enum"],
+            [str(EVIDENCE_ID)],
+        )
 
 
 if __name__ == "__main__":

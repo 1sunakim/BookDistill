@@ -110,6 +110,19 @@ class JobRepository:
             ).all()
             return {status: count for status, count in rows}
 
+    def duration_stats(self) -> dict[str, tuple[int, float]]:
+        """Return completed job count and cumulative duration grouped by status."""
+        result: dict[str, tuple[int, float]] = {}
+        with self.session_factory() as session:
+            records = session.scalars(select(JobRecord).where(
+                JobRecord.started_at.is_not(None), JobRecord.finished_at.is_not(None)
+            )).all()
+            for record in records:
+                seconds = max(0.0, (_aware(record.finished_at) - _aware(record.started_at)).total_seconds())
+                count, total = result.get(record.status, (0, 0.0))
+                result[record.status] = (count + 1, total + seconds)
+        return result
+
     def find_active(self, subject_id: str | UUID, job_type: str) -> JobView | None:
         active = [
             TaskStatus.PENDING.value,
@@ -306,7 +319,11 @@ class JobRepository:
         for old in previous:
             session.add(StageRunRecord(
                 id=str(uuid4()), job_id=job.id, stage_name=old.stage_name,
-                status=StageStatus.SKIPPED.value if old.status == StageStatus.SUCCEEDED.value else StageStatus.PENDING.value,
+                status=(
+                    StageStatus.SKIPPED.value
+                    if old.status in {StageStatus.SUCCEEDED.value, StageStatus.SKIPPED.value}
+                    else StageStatus.PENDING.value
+                ),
                 attempt=next_attempt, input_hash=old.input_hash,
                 output_reference=old.output_reference if old.status == StageStatus.SUCCEEDED.value else {},
                 finished_at=utc_now() if old.status == StageStatus.SUCCEEDED.value else None,

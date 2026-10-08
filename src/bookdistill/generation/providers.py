@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import hashlib
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -40,6 +41,84 @@ class StaticLLMProvider:
         return ProviderResult(content=content, request_id=f"static-{self.calls}")
 
 
+class DemoLLMProvider:
+    """Zero-credential extractive provider for the default end-to-end demo."""
+
+    provider_name = "demo"
+    model_name = "demo-extractive-v1"
+
+    def complete(self, *, system_prompt: str, user_prompt: str,
+                 output_schema: dict[str, object],
+                 generation_config: GenerationConfig) -> ProviderResult:
+        del system_prompt, generation_config
+        data = json.loads(user_prompt)
+        evidence = data.get("evidence", [])
+        properties = output_schema.get("properties", {})
+        if "answer" in properties:
+            if not evidence:
+                payload = {"answer": "Insufficient evidence / 证据不足。", "claims": [],
+                           "insufficient_evidence": True, "follow_up": None}
+            else:
+                source = evidence[0]
+                text = source["text"].strip()
+                payload = {
+                    "answer": text,
+                    "claims": [{"text": text, "evidence_ids": [source["evidence_id"]]}],
+                    "insufficient_evidence": False,
+                    "follow_up": None,
+                }
+        elif "title" in properties and "sections" in properties:
+            source = evidence[0]
+            payload = {
+                "title": data.get("title", "Summary"), "overview": source["text"],
+                "sections": [{"heading": "Evidence summary", "content": source["text"],
+                              "evidence_ids": [source["evidence_id"]]}],
+                "key_takeaways": [{"text": source["text"],
+                                     "evidence_ids": [source["evidence_id"]]}],
+            }
+        elif "points" in properties:
+            source = evidence[0]
+            payload = {"points": [{
+                "concept": "Evidence-backed concept / 证据知识点",
+                "definition": source["text"], "attributes": [], "prerequisites": [],
+                "related_concepts": [], "misconceptions": [],
+                "evidence_ids": [source["evidence_id"]],
+            }]}
+        elif "questions" in properties:
+            source = evidence[0]
+            requested_count = int(data.get("count", 1))
+            question_type = (data.get("types") or ["concept"])[0]
+            difficulty = data.get("difficulty", "medium")
+            if difficulty == "mixed":
+                difficulty = "medium"
+            payload = {"questions": [{
+                "stem": f"What does the cited passage state? / 引用段落表达了什么？ ({index + 1})",
+                "question_type": question_type, "difficulty": difficulty,
+                "options": [], "answer": source["text"],
+                "explanation": source["text"],
+                "evidence_ids": [source["evidence_id"]],
+            } for index in range(requested_count)]}
+        elif "per_book" in properties:
+            books = data.get("books", [])
+            payload = {
+                "per_book": [{
+                    "book_id": book["book_id"], "book_title": book["book_title"],
+                    "viewpoint": book["evidence"][0]["text"],
+                    "evidence_ids": [book["evidence"][0]["evidence_id"]],
+                } for book in books],
+                "commonalities": [], "differences": [], "applicability": [],
+            }
+        else:
+            raise ProviderRequestError(
+                "The demo provider does not support this output schema.", retryable=False
+            )
+        content = json.dumps(payload, ensure_ascii=False)
+        return ProviderResult(
+            content=content, request_id="demo-local",
+            usage=ModelUsage(input_tokens=len(user_prompt), output_tokens=len(content)),
+        )
+
+
 class OpenAICompatibleProvider:
     """Chat Completions adapter usable with OpenAI-compatible vendors.
 
@@ -63,9 +142,9 @@ class OpenAICompatibleProvider:
             raise ProviderConfigurationError("BOOKDISTILL_LLM_MODEL is required.")
         if not api_key:
             raise ProviderConfigurationError("BOOKDISTILL_LLM_API_KEY is required.")
-        if response_format not in {"json_schema", "json_object"}:
+        if response_format not in {"json_schema", "json_object", "tool_calling", "text_parser"}:
             raise ProviderConfigurationError(
-                "BOOKDISTILL_LLM_RESPONSE_FORMAT must be json_schema or json_object."
+                "Unsupported declared structured output capability."
             )
         self.model_name = model_name
         self.api_key = api_key
@@ -81,7 +160,7 @@ class OpenAICompatibleProvider:
         output_schema: dict[str, object],
         generation_config: GenerationConfig,
     ) -> ProviderResult:
-        response_format: dict[str, object]
+        response_format: dict[str, object] | None = None
         if self.response_format == "json_schema":
             response_format = {
                 "type": "json_schema",
@@ -91,7 +170,7 @@ class OpenAICompatibleProvider:
                     "schema": output_schema,
                 },
             }
-        else:
+        elif self.response_format == "json_object":
             response_format = {"type": "json_object"}
         body = {
             "model": self.model_name,
@@ -101,8 +180,17 @@ class OpenAICompatibleProvider:
             ],
             "temperature": generation_config.temperature,
             "max_tokens": generation_config.max_output_tokens,
-            "response_format": response_format,
         }
+        if response_format is not None:
+            body["response_format"] = response_format
+        if self.response_format == "tool_calling":
+            body["tools"] = [{"type": "function", "function": {
+                "name": "bookdistill_response", "strict": True,
+                "parameters": output_schema,
+            }}]
+            body["tool_choice"] = {
+                "type": "function", "function": {"name": "bookdistill_response"},
+            }
         request = Request(
             f"{self.base_url}/chat/completions",
             data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
@@ -116,24 +204,35 @@ class OpenAICompatibleProvider:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as error:
+            if error.code in {401, 403, 404}:
+                raise ProviderConfigurationError(
+                    f"LLM provider configuration was rejected (HTTP {error.code})."
+                ) from None
             retryable = error.code == 429 or error.code >= 500
             raise ProviderRequestError(
                 f"LLM provider returned HTTP {error.code}.",
                 retryable=retryable,
                 status_code=error.code,
-            ) from error
+            ) from None
         except (URLError, TimeoutError) as error:
             raise ProviderRequestError(
                 "LLM provider could not be reached.", retryable=True
-            ) from error
+            ) from None
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise ProviderRequestError(
                 "LLM provider returned an unreadable response.", retryable=False
-            ) from error
+            ) from None
 
         try:
             choice = payload["choices"][0]
-            content = choice["message"]["content"]
+            message = choice["message"]
+            content = message.get("content")
+            if self.response_format == "tool_calling" and not content:
+                content = message["tool_calls"][0]["function"]["arguments"]
+            if not isinstance(content, str) or not content.strip():
+                raise ProviderRequestError(
+                    "LLM provider returned empty message content.", retryable=True
+                )
             usage = payload.get("usage") or {}
             return ProviderResult(
                 content=content,
@@ -143,9 +242,16 @@ class OpenAICompatibleProvider:
                     input_tokens=usage.get("prompt_tokens"),
                     output_tokens=usage.get("completion_tokens"),
                 ),
+                raw_response_reference=(
+                    "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+                ),
             )
         except (KeyError, IndexError, TypeError) as error:
             raise ProviderRequestError(
                 "LLM provider response did not match Chat Completions format.",
                 retryable=False,
             ) from error
+
+
+# Compatibility import for callers of the old provider module.
+from .langchain_provider import LangChainChatProvider

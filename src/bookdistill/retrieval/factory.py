@@ -7,6 +7,7 @@ from bookdistill.settings import Settings
 from .engine import HybridRetrievalEngine
 from .in_memory import (
     HashingEmbeddingProvider,
+    InMemoryBM25Index,
     InMemoryDenseIndex,
     TokenOverlapReranker,
 )
@@ -46,6 +47,20 @@ def build_retrieval_engine(settings: Settings) -> HybridRetrievalEngine:
         raise ValueError(
             f"Unsupported BOOKDISTILL_RERANKER_PROVIDER: {settings.reranker_provider}"
         )
+    sparse_backend = settings.sparse_backend.casefold()
+    if sparse_backend == "memory":
+        sparse_index = InMemoryBM25Index()
+    elif sparse_backend == "qdrant":
+        from .qdrant_sparse_index import QdrantSparseIndex
+
+        sparse_index = QdrantSparseIndex(
+            url=settings.qdrant_url,
+            collection_name=settings.qdrant_sparse_collection,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported BOOKDISTILL_SPARSE_BACKEND: {settings.sparse_backend}"
+        )
     backend = settings.dense_backend.casefold()
     if backend == "memory":
         dense_index = InMemoryDenseIndex()
@@ -64,5 +79,9 @@ def build_retrieval_engine(settings: Settings) -> HybridRetrievalEngine:
     return HybridRetrievalEngine(
         embedding=embedding,
         dense_index=dense_index,
+        sparse_index=sparse_index,
         reranker=reranker,
+        dense_timeout_ms=settings.dense_timeout_ms,
+        sparse_timeout_ms=settings.sparse_timeout_ms,
+        rerank_timeout_ms=settings.rerank_timeout_ms,
     )

@@ -14,6 +14,7 @@ from .in_memory import (
     InMemoryDenseIndex,
     TokenOverlapReranker,
 )
+from .qdrant_sparse_index import QdrantBM25SparseEncoder, QdrantSparseIndex
 
 __all__ = [
     "HashingEmbeddingProvider",
@@ -26,4 +27,6 @@ __all__ = [
     "InMemoryBM25Index",
     "InMemoryDenseIndex",
     "TokenOverlapReranker",
+    "QdrantBM25SparseEncoder",
+    "QdrantSparseIndex",
 ]

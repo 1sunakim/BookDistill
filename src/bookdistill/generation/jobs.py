@@ -16,14 +16,17 @@ from bookdistill.task_system.handlers import JobContext
 from .errors import GenerationError
 from .service import RagAnswerService
 from .distillation import DistillationService
+from .repository import GenerationRepository
 
 
 class RagAnswerJobHandler:
     job_type = "generation.rag_answer"
     stages = ("generate",)
 
-    def __init__(self, service: RagAnswerService) -> None:
+    def __init__(self, service: RagAnswerService,
+                 repository: GenerationRepository | None = None) -> None:
         self._service = service
+        self._repository = repository
 
     def run_stage(
         self, stage_name: str, context: JobContext, previous_output: dict
@@ -35,7 +38,10 @@ class RagAnswerJobHandler:
             )
         try:
             request = RagAnswerRequest.model_validate(context.input_reference)
-            return self._service.answer(request).model_dump(mode="json")
+            response = self._service.answer(request)
+            if self._repository:
+                self._repository.save_answer(request, response)
+            return response.model_dump(mode="json")
         except GenerationError as error:
             failure = RetryableJobError if error.retryable else PermanentJobError
             raise failure(error.code, error.message, error.details) from error
@@ -54,12 +60,14 @@ class DistillationJobHandler:
         TaskType.VIEWPOINT_COMPARISON: ViewpointRequest,
     }
 
-    def __init__(self, task_type: TaskType, service: DistillationService) -> None:
+    def __init__(self, task_type: TaskType, service: DistillationService,
+                 repository: GenerationRepository | None = None) -> None:
         if task_type not in self._request_models:
             raise ValueError(f"unsupported distillation task: {task_type}")
         self.task_type = task_type
         self.job_type = f"generation.{task_type.value}"
         self._service = service
+        self._repository = repository
 
     def run_stage(self, stage_name: str, context: JobContext, previous_output: dict) -> dict:
         del previous_output
@@ -73,7 +81,14 @@ class DistillationJobHandler:
                 TaskType.QUESTION_GENERATION: self._service.generate_questions,
                 TaskType.VIEWPOINT_COMPARISON: self._service.compare_viewpoints,
             }
-            return methods[self.task_type](request).model_dump(mode="json")
+            response = methods[self.task_type](request)
+            output = response.model_dump(mode="json")
+            if self._repository:
+                artifact = self._repository.save_artifact(
+                    self.task_type.value, request.model_dump(mode="json"), output
+                )
+                output["artifact_id"] = artifact["artifact_id"]
+            return output
         except GenerationError as error:
             failure = RetryableJobError if error.retryable else PermanentJobError
             raise failure(error.code, error.message, error.details) from error

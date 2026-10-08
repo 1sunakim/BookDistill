@@ -1,5 +1,30 @@
 {
   "$defs": {
+    "ConversationTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "ConversationTurn",
+      "type": "object"
+    },
     "Evidence": {
       "additionalProperties": false,
       "properties": {
@@ -145,6 +170,25 @@
           "minLength": 1,
           "title": "Retrieval Version",
           "type": "string"
+        },
+        "context_chunk_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Context Chunk Ids",
+          "type": "array"
+        },
+        "context_expanded": {
+          "default": false,
+          "title": "Context Expanded",
+          "type": "boolean"
+        },
+        "estimated_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Tokens",
+          "type": "integer"
         }
       },
       "required": [
@@ -206,7 +250,7 @@
           "type": "array"
         },
         "language": {
-          "default": "zh-CN",
+          "default": "bilingual",
           "maxLength": 35,
           "minLength": 2,
           "title": "Language",
@@ -218,6 +262,14 @@
           "minimum": 1,
           "title": "Max Answer Characters",
           "type": "integer"
+        },
+        "conversation_history": {
+          "items": {
+            "$ref": "#/$defs/ConversationTurn"
+          },
+          "maxItems": 12,
+          "title": "Conversation History",
+          "type": "array"
         }
       },
       "required": [

@@ -58,6 +58,7 @@ class EvaluationCase(EvaluationModel):
     book_scope: list[UUID] = Field(min_length=1)
     chapter_scope: list[UUID] = Field(default_factory=list)
     reference_answer: str | None = None
+    required_points: list[str] = Field(default_factory=list)
     relevant_chunk_ids: list[UUID] = Field(default_factory=list)
     relevant_page_ranges: list[PageRange] = Field(default_factory=list)
     difficulty: Literal["easy", "medium", "hard"]

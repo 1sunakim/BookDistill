@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from datetime import timedelta
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,20 +12,22 @@ from bookdistill.api.app import create_app
 from bookdistill.settings import Settings
 from bookdistill.task_system.dispatch import NullDispatcher
 from tests.test_ingestion_api import make_text_pdf
+from tests.support import migrate_database
+from bookdistill.task_system.repository import utc_now
+from bookdistill.worker import _sync_cancelled_document
 
 
 class DocumentTaskRecoveryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         root = Path(self.temporary.name)
-        self.app = create_app(
-            Settings(
+        settings = Settings(
                 database_url=f"sqlite:///{(root / 'recovery.db').as_posix()}",
                 storage_root=root / "storage", queue_mode="disabled",
                 max_upload_bytes=2 * 1024 * 1024,
-            ),
-            NullDispatcher(),
-        )
+            )
+        migrate_database(settings.database_url)
+        self.app = create_app(settings, NullDispatcher())
         self.client = TestClient(self.app)
 
     def tearDown(self) -> None:
@@ -34,7 +37,7 @@ class DocumentTaskRecoveryTests(unittest.TestCase):
 
     def upload_queued(self) -> dict:
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("recovery.pdf", io.BytesIO(make_text_pdf()), "application/pdf")},
             data={"language": "en"},
         )
@@ -71,7 +74,7 @@ class DocumentTaskRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(retried_parse.status, "skipped")
         self.assertEqual(
-            self.client.get(f"/v1/books/{uploaded['book_id']}").json()["status"],
+            self.client.get(f"/api/v1/books/{uploaded['book_id']}").json()["status"],
             "ready",
         )
 
@@ -81,11 +84,11 @@ class DocumentTaskRecoveryTests(unittest.TestCase):
         self.assertEqual(cancelled.status_code, 200, cancelled.text)
         self.assertEqual(cancelled.json()["status"], "cancelled")
         self.assertEqual(
-            self.client.get(f"/v1/jobs/{uploaded['job_id']}").json()["status"],
+            self.client.get(f"/api/v1/document-jobs/{uploaded['job_id']}").json()["status"],
             "cancelled",
         )
         self.assertEqual(
-            self.client.get(f"/v1/books/{uploaded['book_id']}").json()["status"],
+            self.client.get(f"/api/v1/books/{uploaded['book_id']}").json()["status"],
             "cancelled",
         )
         raw_artifact = (
@@ -109,7 +112,7 @@ class DocumentTaskRecoveryTests(unittest.TestCase):
         self.assertEqual(result.status, "cancelled")
         self.assertEqual(result.progress_current, 2)
         self.assertEqual(
-            self.client.get(f"/v1/jobs/{uploaded['job_id']}").json()["status"],
+            self.client.get(f"/api/v1/document-jobs/{uploaded['job_id']}").json()["status"],
             "cancelled",
         )
         structure_stage = next(
@@ -147,11 +150,25 @@ class DocumentTaskRecoveryTests(unittest.TestCase):
         self.assertEqual(jobs.recover_stale(-1), [uploaded["task_id"]])
         self.assertEqual(jobs.get(uploaded["task_id"]).status, "cancelled")
         self.assertEqual(
-            self.client.get(f"/v1/jobs/{uploaded['job_id']}").json()["status"],
+            self.client.get(f"/api/v1/document-jobs/{uploaded['job_id']}").json()["status"],
             "cancelled",
         )
         self.assertEqual(
-            self.client.get(f"/v1/books/{uploaded['book_id']}").json()["status"],
+            self.client.get(f"/api/v1/books/{uploaded['book_id']}").json()["status"],
+            "cancelled",
+        )
+
+    def test_lightweight_worker_recovery_syncs_document_cancellation(self) -> None:
+        uploaded = self.upload_queued()
+        repository = self.app.state.job_service.repository
+        repository.claim(uploaded["task_id"], "killed-worker")
+        repository.request_cancel(uploaded["task_id"])
+        recovered = repository.recover_stale(utc_now() + timedelta(seconds=1))
+        self.assertEqual(recovered, [uploaded["task_id"]])
+        job = repository.get(uploaded["task_id"])
+        _sync_cancelled_document(repository, job)
+        self.assertEqual(
+            self.client.get(f"/api/v1/document-jobs/{uploaded['job_id']}").json()["status"],
             "cancelled",
         )
 

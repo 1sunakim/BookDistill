@@ -76,6 +76,53 @@ $python = "C:\Users\孙\.cache\codex-runtimes\codex-primary-runtime\dependencies
 
 示例文件全部是合成数据，只证明协议与命令可运行，不能作为项目质量结果。
 
+## PRD 模块五：真实 PDF 分阶段评测
+
+真实 PDF 候选批次使用根目录的 `AI-Agents-in-Depth-zh-CN.pdf`。候选问题、标准答案要点与原文锚点在 `examples/real_pdf_annotation_seeds.v1.json`；它们由脚本辅助起草，状态仍为 `draft`，必须由两位不同的人独立复核答案、必要观点、相关 Chunk、物理页与印刷页码，发生分歧时记录裁决。模板不代表人工标注已经完成。
+
+首次准备并冻结批次：
+
+```powershell
+$python = "C:\Users\孙\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+& $python -X utf8 scripts/prepare_real_pdf_evaluation.py --output artifacts/module5-real-pdf-v1/corpus
+& $python -X utf8 scripts/prepare_module5_benchmark.py `
+  --snapshot artifacts/module5-real-pdf-v1/corpus/snapshot.v1.json `
+  --output artifacts/module5-real-pdf-v1/annotations
+& $python -X utf8 scripts/run_module5_benchmark.py `
+  --batch artifacts/module5-real-pdf-v1-final2 `
+  --output artifacts/module5-real-pdf-v1-final2/runs/run-001 `
+  --freeze --generator demo
+```
+
+后续运行须使用同一 lock、已冻结的输入和新输出目录，省略 `--freeze`。更改 PDF、切分、语料、模型、代码或配置时，创建新的批次/版本并冻结新 lock；不可覆盖既有运行。矩阵包括 hashing 与 FastEmbed 的 Sparse、Dense、Hybrid、Hybrid+词法 rerank、Hybrid+向量相似度 rerank，以及 FastEmbed CrossEncoder。权重缺失时该项记作 blocked，不回退到其他模型。当前 retrieval release gate 的 Recall@10、MRR、nDCG@10、P95 延迟、失败预测阈值沿用 `retrieval_release_thresholds.v1.json`。
+
+处理诊断、标注锚点命中、Chunk 来源页映射、各检索方案分数和失败归因分别输出；回答仅在标注所需证据组全部进入最终 Evidence 后运行。不可回答题仍把检索出的干扰证据交给生成器。`human-review-template.csv` 为逐回答/逐引用评分入口：两人检查所有回答断言是否受证据支持、每项必要观点是否完整，以及引用的 PDF 页、印刷页、章节和引文是否准确。缺少任何复核会阻断生成 release gate。
+
+生成运行选择 `--generator configured` 时会使用当前进程的 BookDistill 环境变量，并可能把 Evidence 发送到配置的 API。运行外部模型前，必须确认目标模型与数据发送范围；不将密钥写入锁或报告。`--generator demo` 只检查接口及评测机制，不可用于回答质量评分。已有本地小说续写 LoRA 不能遵循 RAG JSON 合约；改用本地 Instruct 模型时，设置 `BOOKDISTILL_LLM_PROVIDER=transformers-local` 和 `BOOKDISTILL_LLM_LOCAL_*` 后选择 `--generator configured`。
+
+将两位评审各自完成的 CSV 导入另一份结果文件时，使用：
+
+```powershell
+& $python -X utf8 scripts/import_generation_reviews.py `
+  --results artifacts/module5-real-pdf-v1-final2/runs/run-001/generation-results.test.json `
+  --reviews artifacts/module5-real-pdf-v1-final2/runs/run-001/human-review-template.csv `
+  --output artifacts/module5-real-pdf-v1-final2/runs/run-001/generation-results.test.reviewed.json
+```
+
+CSV 中两人的页码判断、逐断言分数和必要观点覆盖必须分别填写；不同 reviewer ID 必须对应不同人。最终裁决列记录共识或第三人裁决。导入器将每条意见绑定到原答案/引用摘要，release gate 会核对两份独立意见与裁决结果；不可回答题还需两人确认确实无引用拒答。
+
+既有 gate 可直接检查此次报告：
+
+```powershell
+& $python -X utf8 scripts/check_retrieval_release_gate.py `
+  --report artifacts/module5-real-pdf-v1-final2/runs/run-001/ablation.json
+& $python -X utf8 scripts/check_generation_release_gate.py `
+  artifacts/module5-real-pdf-v1-final2/runs/run-001/generation-results.test.reviewed.json `
+  --dataset artifacts/module5-real-pdf-v1-final2/annotations/dataset.test.json
+```
+
+门禁除模块五规定的生成阈值（引用页码准确率 ≥0.90、回答忠实度 ≥0.85、不可回答无引用拒答率=1.00）外，还要求至少100题、至少两本书、冻结 test 集和每题双人复核。未达到时必须报告 `机制测试` 并退出非零；自动抽取、示例数据、`demo` 生成和单次成功调用均不构成质量证明。这个 PDF 单书32题是小规模候选集；本轮查看后不再是盲测集，因此只用于机制测试与改进 dev，不可宣称正式质量验收。
+
 ## 人工标注试运行批次
 
 `examples/evaluation_dataset.rag-intro.manual-dev.v1.json` 包含18条逐条对照示例原文编写的开发集案例，其中14条可回答、4条无答案，覆盖事实、定义、同义改写、干扰前提、跨段落和无答案问题。因为来源只有两页、两个 Chunk，该批次只用于验证标注规范，不得当作正式质量测试集。

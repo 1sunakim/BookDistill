@@ -17,6 +17,8 @@ NUMBERED_HEADING = re.compile(
     r"第(?P<cjk>[一二三四五六七八九十百千万零〇两\d]+)(?P<unit>[编篇部章节])\s*)"
 )
 APPENDIX_HEADING = re.compile(r"^(?:附录|appendix)\s*[A-Z\d一二三四五六七八九十]*", re.I)
+CIRCLED_STEP_MARKER = re.compile(r"^[\u2460-\u2473]")
+BARE_DECIMAL_LINE = re.compile(r"^\d+(?:\.\d+)+$")
 
 
 @dataclass(slots=True)
@@ -128,6 +130,15 @@ class ChapterStructurer:
     def _rule_candidate(self, block: TextBlock, body_size: float) -> HeadingCandidate | None:
         title = block.text.strip()
         if not title or len(title) > 160 or "\n" in title and len(title.splitlines()) > 2:
+            return None
+        # NFKC turns circled step markers such as ``①`` into ordinary digits.
+        # They are common inside diagrams and workflows, where treating them as
+        # numbered headings creates false chapters and tiny chunks. A genuine
+        # bookmarked heading is still retained through the PDF TOC path above.
+        if CIRCLED_STEP_MARKER.match(block.raw_text.lstrip()):
+            return None
+        lines = [line.strip() for line in block.raw_text.splitlines() if line.strip()]
+        if len(lines) > 1 and BARE_DECIMAL_LINE.fullmatch(lines[0]):
             return None
         numbered = NUMBERED_HEADING.match(title)
         appendix = APPENDIX_HEADING.match(title)

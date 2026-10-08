@@ -145,6 +145,25 @@
           "minLength": 1,
           "title": "Retrieval Version",
           "type": "string"
+        },
+        "context_chunk_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Context Chunk Ids",
+          "type": "array"
+        },
+        "context_expanded": {
+          "default": false,
+          "title": "Context Expanded",
+          "type": "boolean"
+        },
+        "estimated_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Tokens",
+          "type": "integer"
         }
       },
       "required": [
@@ -198,7 +217,7 @@
           "type": "array"
         },
         "language": {
-          "default": "zh-CN",
+          "default": "bilingual",
           "maxLength": 35,
           "minLength": 2,
           "title": "Language",

@@ -20,7 +20,7 @@
 docker compose up --build
 ```
 
-API 文档位于 `http://localhost:8000/docs`，就绪检查位于 `/health/ready`。
+API 文档位于 `http://localhost:8000/docs`，就绪检查位于 `/api/v1/health/ready`。
 
 不使用容器时，默认 `BOOKDISTILL_QUEUE_MODE=inline`，任务在当前进程执行，便于
 本地调试。Docker Compose 显式使用 `celery`，由 Redis、Worker 和 Beat 执行、重试
@@ -58,5 +58,6 @@ class SomeHandler:
 - `GET /api/v1/jobs/{job_id}`
 - `POST /api/v1/jobs/{job_id}/cancel`
 - `POST /api/v1/jobs/{job_id}/retry`
-- `GET /health/live`
-- `GET /health/ready`
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
+- `GET /api/v1/metrics`

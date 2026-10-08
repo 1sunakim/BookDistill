@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -47,7 +48,16 @@ class QdrantDenseIndex:
                 ),
             )
 
-    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None:
+    def upsert(
+        self,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+        *,
+        book_titles: dict[UUID, str] | None = None,
+        index_version: str | None = None,
+        model_name: str | None = None,
+        indexed_at: datetime | None = None,
+    ) -> None:
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must have the same length")
         points = []
@@ -63,6 +73,11 @@ class QdrantDenseIndex:
                     payload={
                         "book_id": str(chunk.book_id),
                         "chapter_id": str(chunk.chapter_id),
+                        "book_title": (book_titles or {}).get(chunk.book_id),
+                        "index_version": index_version,
+                        "model_name": model_name,
+                        "chunk_version": chunk.chunk_version,
+                        "indexed_at": (indexed_at or datetime.now(timezone.utc)).isoformat(),
                         "chunk": chunk.model_dump(mode="json"),
                     },
                 )
@@ -132,10 +147,7 @@ class QdrantDenseIndex:
             if chunk_payload is None:
                 raise RuntimeError(f"Qdrant point {point.id} has no Chunk payload")
             hits.append(
-                SearchHit(
-                    chunk=Chunk.model_validate(chunk_payload),
-                    score=float(point.score),
-                )
+                _payload_hit(payload, score=float(point.score))
             )
         return hits
 
@@ -143,3 +155,33 @@ class QdrantDenseIndex:
         return int(
             self.client.count(collection_name=self.collection_name, exact=True).count
         )
+
+    def get_many(self, chunk_ids: Sequence[UUID]) -> list[SearchHit]:
+        if not chunk_ids:
+            return []
+        points = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[str(value) for value in chunk_ids],
+            with_payload=True,
+            with_vectors=False,
+        )
+        by_id = {
+            UUID(str(point.id)): _payload_hit(point.payload or {}, score=0.0)
+            for point in points
+        }
+        return [by_id[value] for value in chunk_ids if value in by_id]
+
+
+def _payload_hit(payload: dict[str, Any], *, score: float) -> SearchHit:
+    chunk_payload = payload.get("chunk")
+    if chunk_payload is None:
+        raise RuntimeError("Qdrant point has no Chunk payload")
+    indexed_at = payload.get("indexed_at")
+    return SearchHit(
+        chunk=Chunk.model_validate(chunk_payload),
+        score=score,
+        book_title=payload.get("book_title"),
+        index_version=payload.get("index_version"),
+        model_name=payload.get("model_name"),
+        indexed_at=datetime.fromisoformat(indexed_at) if indexed_at else None,
+    )

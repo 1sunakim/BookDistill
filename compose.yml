@@ -1,12 +1,12 @@
 x-app-build: &app-build
   context: .
   args:
-    BASE_IMAGE: ${BOOKDISTILL_BASE_IMAGE:-python:3.11-slim}
+    BASE_IMAGE: ${BOOKDISTILL_BASE_IMAGE:-python:3.11.9-slim-bookworm}
     PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: ${BOOKDISTILL_POSTGRES_IMAGE:-postgres:17-alpine}
     environment:
       POSTGRES_DB: bookdistill
       POSTGRES_USER: bookdistill
@@ -20,7 +20,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:7-alpine
+    image: ${BOOKDISTILL_REDIS_IMAGE:-redis:7-alpine}
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -31,7 +31,7 @@ services:
       retries: 20
 
   qdrant:
-    image: qdrant/qdrant:v1.15.4
+    image: ${BOOKDISTILL_QDRANT_IMAGE:-qdrant/qdrant:v1.15.4}
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
@@ -51,27 +51,43 @@ services:
       BOOKDISTILL_DENSE_BACKEND: qdrant
       BOOKDISTILL_QDRANT_URL: http://qdrant:6333
       BOOKDISTILL_QDRANT_COLLECTION: bookdistill_chunks
-      BOOKDISTILL_EMBEDDING_DIMENSION: 512
-      BOOKDISTILL_EMBEDDING_PROVIDER: fastembed
+      BOOKDISTILL_SPARSE_BACKEND: qdrant
+      BOOKDISTILL_QDRANT_SPARSE_COLLECTION: bookdistill_chunks_sparse
+      BOOKDISTILL_EMBEDDING_DIMENSION: ${BOOKDISTILL_EMBEDDING_DIMENSION:-384}
+      BOOKDISTILL_EMBEDDING_PROVIDER: ${BOOKDISTILL_EMBEDDING_PROVIDER:-hashing}
       BOOKDISTILL_EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
-      BOOKDISTILL_RERANKER_PROVIDER: fastembed
+      BOOKDISTILL_RERANKER_PROVIDER: ${BOOKDISTILL_RERANKER_PROVIDER:-token_overlap}
       BOOKDISTILL_RERANKER_MODEL: BAAI/bge-reranker-base
+      BOOKDISTILL_DENSE_TIMEOUT_MS: ${BOOKDISTILL_DENSE_TIMEOUT_MS:-2500}
+      BOOKDISTILL_SPARSE_TIMEOUT_MS: ${BOOKDISTILL_SPARSE_TIMEOUT_MS:-1500}
+      BOOKDISTILL_RERANK_TIMEOUT_MS: ${BOOKDISTILL_RERANK_TIMEOUT_MS:-5000}
       BOOKDISTILL_MODEL_CACHE_DIR: /app/model-cache
-      BOOKDISTILL_LLM_PROVIDER: ${BOOKDISTILL_LLM_PROVIDER:-disabled}
-      BOOKDISTILL_LLM_MODEL: ${BOOKDISTILL_LLM_MODEL:-}
+      BOOKDISTILL_LLM_PROVIDER: ${BOOKDISTILL_LLM_PROVIDER:-demo}
+      BOOKDISTILL_LLM_ADAPTER: ${BOOKDISTILL_LLM_ADAPTER:-legacy}
+      BOOKDISTILL_STRUCTURED_OUTPUT_BACKEND: ${BOOKDISTILL_STRUCTURED_OUTPUT_BACKEND:-legacy}
+      BOOKDISTILL_RAG_PIPELINE: ${BOOKDISTILL_RAG_PIPELINE:-legacy}
+      BOOKDISTILL_LLM_MODEL: ${BOOKDISTILL_LLM_MODEL:-demo-extractive-v1}
       BOOKDISTILL_LLM_BASE_URL: ${BOOKDISTILL_LLM_BASE_URL:-https://api.openai.com/v1}
-      BOOKDISTILL_LLM_API_KEY: ${BOOKDISTILL_LLM_API_KEY:-}
       BOOKDISTILL_LLM_TIMEOUT_SECONDS: ${BOOKDISTILL_LLM_TIMEOUT_SECONDS:-60}
       BOOKDISTILL_LLM_RESPONSE_FORMAT: ${BOOKDISTILL_LLM_RESPONSE_FORMAT:-json_schema}
+      BOOKDISTILL_LLM_MAX_CONTEXT_TOKENS: ${BOOKDISTILL_LLM_MAX_CONTEXT_TOKENS:-8192}
+      BOOKDISTILL_LLM_COST_LIMIT_USD: ${BOOKDISTILL_LLM_COST_LIMIT_USD:-1.0}
+      BOOKDISTILL_DEFAULT_LANGUAGE: ${BOOKDISTILL_DEFAULT_LANGUAGE:-bilingual}
+      BOOKDISTILL_MIN_CLAIM_SUPPORT_OVERLAP: ${BOOKDISTILL_MIN_CLAIM_SUPPORT_OVERLAP:-0.05}
+      BOOKDISTILL_MIN_EVIDENCE_RELEVANCE: ${BOOKDISTILL_MIN_EVIDENCE_RELEVANCE:-0.02}
+      BOOKDISTILL_CORS_ORIGINS: ${BOOKDISTILL_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      BOOKDISTILL_API_KEY: ${BOOKDISTILL_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
 
   api:
     build: *app-build
-    environment: *app-env
+    environment:
+      <<: *app-env
+      BOOKDISTILL_LLM_API_KEY: ${BOOKDISTILL_LLM_API_KEY:-}
     ports:
-      - "8000:8000"
+      - "${BOOKDISTILL_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     volumes:
       - app_data:/app/data
       - model_cache:/app/model-cache
@@ -83,15 +99,19 @@ services:
       qdrant:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/ready')"]
       interval: 10s
       timeout: 3s
       retries: 10
+    mem_limit: ${BOOKDISTILL_API_MEMORY_LIMIT:-2g}
+    cpus: ${BOOKDISTILL_API_CPU_LIMIT:-2.0}
 
   worker:
     build: *app-build
-    command: celery -A bookdistill.worker:celery_app worker --loglevel=INFO
-    environment: *app-env
+    command: ["/bin/sh", "-c", "exec celery -A bookdistill.worker:celery_app worker --loglevel=INFO --concurrency=$${BOOKDISTILL_WORKER_CONCURRENCY:-2}"]
+    environment:
+      <<: *app-env
+      BOOKDISTILL_LLM_API_KEY: ${BOOKDISTILL_LLM_API_KEY:-}
     volumes:
       - app_data:/app/data
       - model_cache:/app/model-cache
@@ -100,6 +120,10 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    mem_limit: ${BOOKDISTILL_WORKER_MEMORY_LIMIT:-4g}
+    cpus: ${BOOKDISTILL_WORKER_CPU_LIMIT:-2.0}
 
   beat:
     build: *app-build
@@ -110,6 +134,28 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BASE_IMAGE: ${BOOKDISTILL_NODE_BASE_IMAGE:-node:22.13.1-bookworm-slim}
+        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}
+        NEXT_PUBLIC_BOOKDISTILL_API_URL: ${BOOKDISTILL_PUBLIC_API_URL:-http://127.0.0.1:8000}
+    ports:
+      - "${BOOKDISTILL_BIND_ADDRESS:-127.0.0.1}:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 1g
+    cpus: 1.0
 
 volumes:
   postgres_data:

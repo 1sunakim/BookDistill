@@ -83,6 +83,27 @@
           "minimum": 1,
           "title": "Max Per Chapter",
           "type": "integer"
+        },
+        "context_window": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Context Window",
+          "type": "integer"
+        },
+        "context_token_budget": {
+          "default": 3000,
+          "maximum": 32000,
+          "minimum": 128,
+          "title": "Context Token Budget",
+          "type": "integer"
+        },
+        "max_context_tokens_per_evidence": {
+          "default": 800,
+          "maximum": 8000,
+          "minimum": 64,
+          "title": "Max Context Tokens Per Evidence",
+          "type": "integer"
         }
       },
       "title": "RetrievalConfig",
@@ -161,7 +182,7 @@
       "$ref": "#/$defs/GenerationConfig"
     },
     "language": {
-      "default": "zh-CN",
+      "default": "bilingual",
       "maxLength": 35,
       "minLength": 2,
       "title": "Language",
@@ -172,6 +193,26 @@
       "maximum": 20000,
       "minimum": 1,
       "title": "Max Answer Characters",
+      "type": "integer"
+    },
+    "conversation_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conversation Id"
+    },
+    "history_window": {
+      "default": 6,
+      "maximum": 12,
+      "minimum": 0,
+      "title": "History Window",
       "type": "integer"
     }
   },

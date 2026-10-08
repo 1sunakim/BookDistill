@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "target_variant": "hybrid_rerank",
+  "minimum_recall_at_10": 0.85,
+  "minimum_mrr": 0.65,
+  "minimum_ndcg_at_10": 0.70,
+  "maximum_latency_p95_ms": 8000,
+  "maximum_missing_or_failed_predictions": 0,
+  "notes": "宽松的首发门槛；必须在人工标注的真实书籍测试集上重新确认。"
+}

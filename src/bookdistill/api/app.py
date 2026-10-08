@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from collections import defaultdict, deque
+from time import perf_counter
+import secrets
+import time
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -17,14 +22,13 @@ from bookdistill.contracts import (
     Chunk,
     CreateJobRequest,
     ErrorCategory,
-    ErrorDetail,
     JobView,
     ParsedDocument,
     ParsingJob,
     ProcessingStage,
     TaskType,
 )
-from bookdistill.database import Base, create_database_engine, create_session_factory
+from bookdistill.database import create_database_engine, create_session_factory
 from bookdistill.document_processing.factory import build_document_service
 from bookdistill.document_processing.jobs import DocumentProcessingJobHandler
 from bookdistill.document_processing.exceptions import DocumentProcessingError
@@ -39,6 +43,7 @@ from bookdistill.generation import (
     build_distillation_service,
 )
 from bookdistill.generation_api import create_generation_router
+from bookdistill.generation.repository import GenerationRepository
 from bookdistill.evaluation_api import create_evaluation_router
 from bookdistill.retrieval import build_retrieval_engine
 from bookdistill.retrieval_api import create_retrieval_router
@@ -56,6 +61,9 @@ from bookdistill.task_system.exceptions import (
     JobNotFoundError,
 )
 from bookdistill.task_system.repository import JobRepository
+from bookdistill.observability import metrics
+from bookdistill.model_config import ModelConfigStore
+from bookdistill.model_config_api import create_model_config_router
 
 from .schemas import RebuildBookRequest, ReprocessBookRequest, UploadAccepted
 
@@ -69,8 +77,8 @@ def create_app(
     resolved = settings or Settings.from_environment()
     resolved.storage_root.mkdir(parents=True, exist_ok=True)
     engine = create_database_engine(resolved.database_url)
-    Base.metadata.create_all(engine)
     sessions = create_session_factory(engine)
+    model_config = ModelConfigStore(resolved.storage_root)
     service = build_document_service(resolved, sessions)
 
     @asynccontextmanager
@@ -81,23 +89,24 @@ def create_app(
             engine.dispose()
 
     app = FastAPI(title="BookDistill API", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=list(resolved.cors_origins),
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Idempotency-Key", "X-Request-ID", "X-Trace-ID"],
-        expose_headers=["X-Request-ID", "X-Trace-ID"],
-    )
     app.state.settings = resolved
     app.state.engine = engine
     app.state.ingestion_service = service
     retrieval = build_retrieval_engine(resolved)
     app.state.retrieval = retrieval
-    generation = generation_service or build_generation_service(resolved)
-    distillation = distillation_service or build_distillation_service(resolved)
+    generation = generation_service or build_generation_service(resolved, model_config)
+    distillation = distillation_service or build_distillation_service(resolved, model_config)
+    generation_repository = GenerationRepository(sessions)
+    if generation is not None and generation_service is None:
+        generation.source_validator = generation_repository.validate_evidence_sources
+        generation.minimum_claim_support_overlap = resolved.minimum_claim_support_overlap
+    if distillation is not None and distillation_service is None:
+        distillation.source_validator = generation_repository.validate_evidence_sources
+        distillation.minimum_claim_support_overlap = resolved.minimum_claim_support_overlap
     app.state.generation = generation
     app.state.distillation = distillation
+    rate_windows: dict[str, deque[float]] = defaultdict(deque)
+    app.state.generation_repository = generation_repository
 
     def index_book(book_id: UUID) -> dict[str, object]:
         chunks = service.get_chunks(book_id)
@@ -118,7 +127,7 @@ def create_app(
     registry.register(DemoJobHandler())
     registry.register(DocumentProcessingJobHandler(service, index_book))
     if generation is not None:
-        registry.register(RagAnswerJobHandler(generation))
+        registry.register(RagAnswerJobHandler(generation, generation_repository))
     if distillation is not None:
         for task_type in (
             TaskType.SUMMARY,
@@ -126,7 +135,7 @@ def create_app(
             TaskType.QUESTION_GENERATION,
             TaskType.VIEWPOINT_COMPARISON,
         ):
-            registry.register(DistillationJobHandler(task_type, distillation))
+            registry.register(DistillationJobHandler(task_type, distillation, generation_repository))
     jobs = JobService(
         JobRepository(sessions), registry,
         heartbeat_interval_seconds=max(1, resolved.heartbeat_timeout_seconds / 3),
@@ -142,13 +151,87 @@ def create_app(
 
     @app.middleware("http")
     async def trace_requests(request: Request, call_next):
+        started = perf_counter()
         request_id = request.headers.get("X-Request-ID", uuid4().hex)
         request.state.request_id = request_id
         request.state.trace_id = request.headers.get("X-Trace-ID", request_id)
-        response = await call_next(request)
+        client_host = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        window = rate_windows[client_host]
+        while window and window[0] <= now - 60:
+            window.popleft()
+        if len(window) >= resolved.rate_limit_per_minute:
+            response = JSONResponse(status_code=429, content={
+                "code": "RATE_LIMITED", "message": "Request rate limit exceeded.",
+                "trace_id": request.state.trace_id, "details": {},
+            })
+        elif request.url.path.startswith("/api/v1/model-config") and not resolved.api_key:
+            response = JSONResponse(status_code=503, content={
+                "code": "ADMIN_KEY_REQUIRED",
+                "message": "Set BOOKDISTILL_API_KEY on the server before managing model profiles.",
+                "trace_id": request.state.trace_id, "details": {},
+            })
+        elif (
+            resolved.api_key
+            and (
+                request.url.path.startswith("/api/v1/model-config")
+                or
+                request.method not in {"GET", "HEAD", "OPTIONS"}
+                or request.url.path.startswith("/api/v1/jobs")
+                or request.url.path == "/api/v1/metrics"
+            )
+            and not secrets.compare_digest(
+                request.headers.get("X-BookDistill-API-Key", ""), resolved.api_key
+            )
+        ):
+            response = JSONResponse(status_code=401, content={
+                "code": "AUTHENTICATION_REQUIRED", "message": "A valid API key is required.",
+                "trace_id": request.state.trace_id, "details": {},
+            })
+        else:
+            window.append(now)
+            response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Trace-ID"] = request.state.trace_id
+        route = request.scope.get("route")
+        metrics.observe(
+            request.method, getattr(route, "path", request.url.path),
+            response.status_code, perf_counter() - started,
+        )
         return response
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(resolved.cors_origins),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Idempotency-Key", "X-Request-ID", "X-Trace-ID", "X-BookDistill-API-Key"],
+        expose_headers=["X-Request-ID", "X-Trace-ID"],
+    )
+
+    @app.exception_handler(HTTPException)
+    async def handle_http_error(request: Request, error: HTTPException) -> JSONResponse:
+        detail = error.detail
+        if isinstance(detail, dict):
+            code = str(detail.get("code", "HTTP_ERROR"))
+            message = str(detail.get("message", code))
+            details = {key: value for key, value in detail.items() if key not in {"code", "message"}}
+        else:
+            code = "HTTP_ERROR"
+            message = str(detail)
+            details = {}
+        return JSONResponse(status_code=error.status_code, content={
+            "code": code, "message": message,
+            "trace_id": request.state.trace_id, "details": details,
+        })
+
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={
+            "code": "VALIDATION_ERROR", "message": "Request validation failed.",
+            "trace_id": request.state.trace_id,
+            "details": {"errors": jsonable_encoder(error.errors())},
+        })
 
     @app.exception_handler(JobNotFoundError)
     async def handle_job_not_found(request: Request, error: JobNotFoundError) -> JSONResponse:
@@ -172,20 +255,16 @@ def create_app(
         })
 
     @app.exception_handler(DocumentProcessingError)
-    async def handle_document_error(_, error: DocumentProcessingError) -> JSONResponse:
-        detail = ErrorDetail(
-            error_id=uuid4(),
-            code=error.code,
-            category=error.category,
-            message=error.message,
-            stage=error.stage,
-            retryable=error.retryable,
-            page_index=error.page_index,
-            details=error.details,
-            trace_id=f"request-{uuid4()}",
-            occurred_at=datetime.now(UTC),
-        )
-        return JSONResponse(status_code=error.http_status, content=detail.model_dump(mode="json"))
+    async def handle_document_error(request: Request, error: DocumentProcessingError) -> JSONResponse:
+        details = dict(error.details)
+        details.update({
+            "category": error.category.value, "stage": error.stage.value,
+            "retryable": error.retryable, "page_index": error.page_index,
+        })
+        return JSONResponse(status_code=error.http_status, content={
+            "code": error.code, "message": error.message,
+            "trace_id": request.state.trace_id, "details": details,
+        })
 
     @app.exception_handler(GenerationError)
     async def handle_generation_error(
@@ -197,7 +276,7 @@ def create_app(
             "trace_id": request.state.trace_id, "details": error.details,
         })
 
-    @app.post("/v1/books", response_model=UploadAccepted, status_code=202)
+    @app.post("/api/v1/books", response_model=UploadAccepted, status_code=202)
     def upload_book(
         file: Annotated[UploadFile, File(description="PDF book")],
         title: Annotated[str | None, Form()] = None,
@@ -241,7 +320,7 @@ def create_app(
             duplicate=result.duplicate,
         )
 
-    @app.get("/v1/books", response_model=list[Book])
+    @app.get("/api/v1/books", response_model=list[Book])
     def list_books(
         limit: int = Query(default=100, ge=1, le=200),
         offset: int = Query(default=0, ge=0),
@@ -249,7 +328,7 @@ def create_app(
         return service.list_books(limit=limit, offset=offset)
 
     @app.post(
-        "/v1/books/{book_id}/reprocess",
+        "/api/v1/books/{book_id}/reprocess",
         response_model=JobView,
         status_code=202,
     )
@@ -292,7 +371,7 @@ def create_app(
         return jobs.get(str(job.job_id))
 
     @app.post(
-        "/v1/books/{book_id}/rebuild",
+        "/api/v1/books/{book_id}/rebuild",
         response_model=JobView,
         status_code=202,
     )
@@ -333,7 +412,7 @@ def create_app(
             dispatcher.dispatch(str(job.job_id))
         return jobs.get(str(job.job_id))
 
-    @app.delete("/v1/books/{book_id}", status_code=204)
+    @app.delete("/api/v1/books/{book_id}", status_code=204)
     def delete_book(book_id: UUID) -> Response:
         active = jobs.repository.find_active(book_id, "document.process")
         if active is not None:
@@ -347,49 +426,55 @@ def create_app(
         service.delete_book(book_id)
         return Response(status_code=204)
 
-    @app.get("/v1/books/{book_id}", response_model=Book)
+    @app.get("/api/v1/books/{book_id}", response_model=Book)
     def get_book(book_id: UUID) -> Book:
         book = service.get_book(book_id)
         if book is None:
             raise HTTPException(status_code=404, detail="Book not found")
         return book
 
-    @app.get("/v1/jobs/{job_id}", response_model=ParsingJob)
+    @app.get("/api/v1/document-jobs/{job_id}", response_model=ParsingJob)
     def get_job(job_id: UUID) -> ParsingJob:
         job = service.get_job(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
         return job
 
-    @app.get("/v1/books/{book_id}/parsed-document", response_model=ParsedDocument)
+    @app.get("/api/v1/books/{book_id}/parsed-document", response_model=ParsedDocument)
     def get_parsed_document(book_id: UUID) -> ParsedDocument:
         document = service.get_parsed_document(book_id)
         if document is None:
             raise HTTPException(status_code=404, detail="Parsed document not found")
         return document
 
-    @app.get("/v1/books/{book_id}/chapters", response_model=list[Chapter])
+    @app.get("/api/v1/books/{book_id}/chapters", response_model=list[Chapter])
     def get_chapters(book_id: UUID) -> list[Chapter]:
         chapters = service.get_chapters(book_id)
         if chapters is None:
             raise HTTPException(status_code=404, detail="Book not found")
         return chapters
 
-    @app.get("/v1/books/{book_id}/chunks", response_model=list[Chunk])
+    @app.get("/api/v1/books/{book_id}/chunks", response_model=list[Chunk])
     def get_chunks(book_id: UUID) -> list[Chunk]:
         chunks = service.get_chunks(book_id)
         if chunks is None:
             raise HTTPException(status_code=404, detail="Book not found")
         return chunks
 
+    app.include_router(create_model_config_router(model_config, resolved))
     app.include_router(create_retrieval_router(retrieval))
     app.include_router(create_evaluation_router(retrieval, resolved.storage_root))
     app.include_router(create_task_router(
         jobs, dispatcher, sessions,
-        redis_url=resolved.redis_url if resolved.queue_mode == "celery" else None,
+        settings=resolved, model_config=model_config,
     ))
     app.include_router(
-        create_generation_router(retrieval, generation, jobs, dispatcher, distillation)
+        create_generation_router(
+            retrieval, generation, jobs, dispatcher, distillation, generation_repository,
+            minimum_evidence_relevance=resolved.minimum_evidence_relevance,
+            max_context_tokens=resolved.llm_max_context_tokens,
+            rag_pipeline=resolved.rag_pipeline,
+        )
     )
 
     return app

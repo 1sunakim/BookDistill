@@ -12,20 +12,20 @@ from bookdistill.contracts.task_system import CreateJobRequest, TaskStatus
 from bookdistill.settings import Settings
 from bookdistill.task_system.dispatch import NullDispatcher
 from bookdistill.task_system.exceptions import InvalidJobTransitionError
+from tests.support import migrate_database
 
 
 class TaskSystemTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         root = Path(self.temporary.name)
-        self.runtime = build_runtime(
-            Settings(
+        settings = Settings(
                 database_url=f"sqlite:///{(root / 'test.db').as_posix()}",
                 storage_root=root / "data",
                 queue_mode="none",
-            ),
-            create_schema=True,
-        )
+            )
+        migrate_database(settings.database_url)
+        self.runtime = build_runtime(settings)
 
     def tearDown(self) -> None:
         self.runtime.engine.dispose()
@@ -51,6 +51,29 @@ class TaskSystemTests(unittest.TestCase):
         self.assertEqual(second.progress_current, 3)
         retry_prepare = next(s for s in second.stages if s.attempt == 2 and s.stage_name == "prepare")
         self.assertEqual(retry_prepare.status, "skipped")
+
+    def test_repeated_retry_preserves_skipped_stages_and_progress(self) -> None:
+        job, _ = self.runtime.jobs.create(
+            CreateJobRequest(
+                job_type="system.demo", max_attempts=3,
+                input_reference={"fail_until_attempt": 2, "fail_stage": "process"},
+            ),
+            "trace-repeated-retry",
+        )
+        first = self.runtime.jobs.execute(str(job.job_id), "worker-1")
+        self.assertEqual(first.status, TaskStatus.RETRYING.value)
+        second = self.runtime.jobs.execute(str(job.job_id), "worker-2")
+        self.assertEqual(second.status, TaskStatus.RETRYING.value)
+        third = self.runtime.jobs.execute(str(job.job_id), "worker-3")
+
+        self.assertEqual(third.status, TaskStatus.SUCCEEDED.value)
+        self.assertEqual(third.progress_current, third.progress_total)
+        for attempt in (2, 3):
+            prepare = next(
+                stage for stage in third.stages
+                if stage.attempt == attempt and stage.stage_name == "prepare"
+            )
+            self.assertEqual(prepare.status, "skipped")
 
     def test_retry_limit_turns_transient_error_into_terminal_failure(self) -> None:
         job, _ = self.runtime.jobs.create(
@@ -127,7 +150,7 @@ class TaskSystemTests(unittest.TestCase):
             listing = client.get("/api/v1/jobs")
             self.assertEqual(listing.status_code, 200)
             self.assertEqual(listing.json()["total"], 1)
-            metrics = client.get("/metrics")
+            metrics = client.get("/api/v1/metrics")
             self.assertEqual(metrics.status_code, 200)
             self.assertIn('bookdistill_jobs_total{status="queued"} 1', metrics.text)
         app.state.engine.dispose()

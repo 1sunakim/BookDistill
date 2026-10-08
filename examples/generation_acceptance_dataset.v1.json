@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "description": "Generation release set. Replace source book/chunk IDs after importing the acceptance PDF, then have two reviewers fill the human_review fields.",
+  "thresholds": {
+    "citation_page_accuracy": 0.90,
+    "faithfulness": 0.85,
+    "unanswerable_refusal_rate": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "answer-page-2-source-id",
+      "language": "en",
+      "question": "What does every parsed block keep?",
+      "should_answer": true,
+      "reference_answer": "Every parsed block keeps coordinates and a stable source identifier.",
+      "required_points": ["coordinates", "stable source identifier"],
+      "expected_pages": [2],
+      "human_review": {"faithfulness": null, "completeness": null, "readability": null, "notes": ""}
+    },
+    {
+      "case_id": "answer-page-1-rag",
+      "language": "bilingual",
+      "question": "这份手册第一页介绍了什么？ / What is introduced on page one?",
+      "should_answer": true,
+      "reference_answer": "It introduces a searchable BookDistill retrieval-augmented-generation document. / 它介绍了一份可检索的 BookDistill 检索增强生成文档。",
+      "required_points": ["retrieval augmented generation", "searchable"],
+      "expected_pages": [1],
+      "human_review": {"faithfulness": null, "completeness": null, "readability": null, "notes": ""}
+    },
+    {
+      "case_id": "follow-up-context",
+      "language": "bilingual",
+      "question": "它还保留了什么？ / What else does it keep?",
+      "previous_user_question": "What does every parsed block keep?",
+      "should_answer": true,
+      "reference_answer": "It keeps both coordinates and a stable source identifier. / 它同时保留坐标和稳定来源标识。",
+      "required_points": ["coordinates", "stable source identifier"],
+      "expected_pages": [2],
+      "human_review": {"faithfulness": null, "completeness": null, "readability": null, "notes": ""}
+    },
+    {
+      "case_id": "refuse-out-of-scope-physics",
+      "language": "bilingual",
+      "question": "Explain neutrino oscillation and give its mass hierarchy.",
+      "should_answer": false,
+      "reference_answer": "Insufficient evidence / 证据不足。",
+      "required_points": [],
+      "expected_pages": [],
+      "human_review": {"faithfulness": null, "completeness": null, "readability": null, "notes": "Must not cite an unrelated page."}
+    },
+    {
+      "case_id": "refuse-invented-policy",
+      "language": "zh-CN",
+      "question": "书中规定的 API 每月费用上限是多少？",
+      "should_answer": false,
+      "reference_answer": "现有证据没有给出 API 月度费用上限。",
+      "required_points": [],
+      "expected_pages": [],
+      "human_review": {"faithfulness": null, "completeness": null, "readability": null, "notes": "Must explicitly refuse instead of inventing a number."}
+    }
+  ]
+}

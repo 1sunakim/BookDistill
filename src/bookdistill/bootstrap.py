@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from bookdistill.database import Base, create_database_engine, create_session_factory
+from bookdistill.database import create_database_engine, create_session_factory
 from bookdistill.db import JobRecord, StageRunRecord  # noqa: F401 - registers metadata
 from bookdistill.document_processing import (
     DocumentProcessingJobHandler,
@@ -28,6 +28,8 @@ from bookdistill.task_system import DemoJobHandler, JobRegistry, JobService
 from bookdistill.task_system.exceptions import PermanentJobError
 from bookdistill.task_system.repository import JobRepository
 from bookdistill.retrieval import HybridRetrievalEngine, build_retrieval_engine
+from bookdistill.generation.repository import GenerationRepository
+from bookdistill.model_config import ModelConfigStore
 
 
 @dataclass(slots=True)
@@ -43,13 +45,11 @@ class Runtime:
     retrieval: HybridRetrievalEngine
 
 
-def build_runtime(settings: Settings | None = None, *, create_schema: bool = False) -> Runtime:
+def build_runtime(settings: Settings | None = None) -> Runtime:
     settings = settings or Settings.from_environment()
     settings.storage_root.mkdir(parents=True, exist_ok=True)
     engine = create_database_engine(settings.database_url)
     sessions = create_session_factory(engine)
-    if create_schema:
-        Base.metadata.create_all(engine)
     registry = JobRegistry()
     registry.register(DemoJobHandler())
     documents = build_document_service(settings, sessions)
@@ -62,6 +62,12 @@ def build_runtime(settings: Settings | None = None, *, create_schema: bool = Fal
                 "Celery indexing requires a shared dense backend such as Qdrant.",
                 {"dense_backend": settings.dense_backend},
             )
+        if settings.queue_mode == "celery" and settings.sparse_backend.casefold() != "qdrant":
+            raise PermanentJobError(
+                "SHARED_SPARSE_INDEX_REQUIRED",
+                "Celery indexing requires the shared Qdrant sparse backend.",
+                {"sparse_backend": settings.sparse_backend},
+            )
         chunks = documents.get_chunks(book_id)
         book = documents.get_book(book_id)
         if not chunks or book is None:
@@ -73,10 +79,18 @@ def build_runtime(settings: Settings | None = None, *, create_schema: bool = Fal
         return {"indexed_count": indexed, "book_status": "ready"}
 
     registry.register(DocumentProcessingJobHandler(documents, index_book))
-    generation = build_generation_service(settings)
-    distillation = build_distillation_service(settings)
+    model_config = ModelConfigStore(settings.storage_root)
+    generation = build_generation_service(settings, model_config)
+    distillation = build_distillation_service(settings, model_config)
+    generation_repository = GenerationRepository(sessions)
     if generation is not None:
-        registry.register(RagAnswerJobHandler(generation))
+        generation.source_validator = generation_repository.validate_evidence_sources
+        generation.minimum_claim_support_overlap = settings.minimum_claim_support_overlap
+    if distillation is not None:
+        distillation.source_validator = generation_repository.validate_evidence_sources
+        distillation.minimum_claim_support_overlap = settings.minimum_claim_support_overlap
+    if generation is not None:
+        registry.register(RagAnswerJobHandler(generation, generation_repository))
     if distillation is not None:
         for task_type in (
             TaskType.SUMMARY,
@@ -84,7 +98,7 @@ def build_runtime(settings: Settings | None = None, *, create_schema: bool = Fal
             TaskType.QUESTION_GENERATION,
             TaskType.VIEWPOINT_COMPARISON,
         ):
-            registry.register(DistillationJobHandler(task_type, distillation))
+            registry.register(DistillationJobHandler(task_type, distillation, generation_repository))
     return Runtime(
         settings, engine, sessions, registry,
         JobService(

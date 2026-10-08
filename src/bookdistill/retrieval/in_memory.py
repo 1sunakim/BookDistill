@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime
 import hashlib
 import math
 import re
@@ -65,30 +66,59 @@ class HashingEmbeddingProvider:
 
 class InMemoryDenseIndex:
     def __init__(self) -> None:
-        self._records: dict[UUID, tuple[Chunk, tuple[float, ...]]] = {}
+        self._records: dict[UUID, tuple[Chunk, tuple[float, ...], SearchHit]] = {}
 
-    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None:
+    def upsert(
+        self,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+        *,
+        book_titles: dict[UUID, str] | None = None,
+        index_version: str | None = None,
+        model_name: str | None = None,
+        indexed_at: datetime | None = None,
+    ) -> None:
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors must have the same length")
         for chunk, vector in zip(chunks, vectors):
-            self._records[chunk.chunk_id] = (chunk, tuple(vector))
+            metadata = SearchHit(
+                chunk=chunk,
+                score=0.0,
+                book_title=(book_titles or {}).get(chunk.book_id),
+                index_version=index_version,
+                model_name=model_name,
+                indexed_at=indexed_at,
+            )
+            self._records[chunk.chunk_id] = (chunk, tuple(vector), metadata)
 
     def delete_book(self, book_id: UUID) -> int:
-        targets = [key for key, (chunk, _) in self._records.items() if chunk.book_id == book_id]
+        targets = [
+            key for key, (chunk, _, _) in self._records.items() if chunk.book_id == book_id
+        ]
         for key in targets:
             del self._records[key]
         return len(targets)
 
     def search(self, vector: Sequence[float], scope: RetrievalScope, top_k: int) -> list[SearchHit]:
         hits = [
-            SearchHit(chunk=chunk, score=sum(a * b for a, b in zip(vector, stored)))
-            for chunk, stored in self._records.values()
+            SearchHit(
+                chunk=chunk,
+                score=sum(a * b for a, b in zip(vector, stored)),
+                book_title=metadata.book_title,
+                index_version=metadata.index_version,
+                model_name=metadata.model_name,
+                indexed_at=metadata.indexed_at,
+            )
+            for chunk, stored, metadata in self._records.values()
             if _in_scope(chunk, scope)
         ]
         return sorted(hits, key=lambda hit: (-hit.score, str(hit.chunk.chunk_id)))[:top_k]
 
     def count(self) -> int:
         return len(self._records)
+
+    def get_many(self, chunk_ids: Sequence[UUID]) -> list[SearchHit]:
+        return [self._records[value][2] for value in chunk_ids if value in self._records]
 
 
 class InMemoryBM25Index:
@@ -97,17 +127,35 @@ class InMemoryBM25Index:
         self.b = b
         self._chunks: dict[UUID, Chunk] = {}
         self._terms: dict[UUID, Counter[str]] = {}
+        self._metadata: dict[UUID, SearchHit] = {}
 
-    def upsert(self, chunks: Sequence[Chunk]) -> None:
+    def upsert(
+        self,
+        chunks: Sequence[Chunk],
+        *,
+        book_titles: dict[UUID, str] | None = None,
+        index_version: str | None = None,
+        model_name: str | None = None,
+        indexed_at: datetime | None = None,
+    ) -> None:
         for chunk in chunks:
             self._chunks[chunk.chunk_id] = chunk
             self._terms[chunk.chunk_id] = Counter(tokenize(chunk.text))
+            self._metadata[chunk.chunk_id] = SearchHit(
+                chunk=chunk,
+                score=0.0,
+                book_title=(book_titles or {}).get(chunk.book_id),
+                index_version=index_version,
+                model_name=model_name,
+                indexed_at=indexed_at,
+            )
 
     def delete_book(self, book_id: UUID) -> int:
         targets = [key for key, chunk in self._chunks.items() if chunk.book_id == book_id]
         for key in targets:
             del self._chunks[key]
             del self._terms[key]
+            del self._metadata[key]
         return len(targets)
 
     def search(self, query: str, scope: RetrievalScope, top_k: int) -> list[SearchHit]:
@@ -139,7 +187,17 @@ class InMemoryBM25Index:
                 )
                 score += query_count * inverse_frequency * frequency * (self.k1 + 1.0) / denominator
             if score > 0:
-                hits.append(SearchHit(chunk=chunk, score=score))
+                metadata = self._metadata[chunk.chunk_id]
+                hits.append(
+                    SearchHit(
+                        chunk=chunk,
+                        score=score,
+                        book_title=metadata.book_title,
+                        index_version=metadata.index_version,
+                        model_name=metadata.model_name,
+                        indexed_at=metadata.indexed_at,
+                    )
+                )
         return sorted(hits, key=lambda hit: (-hit.score, str(hit.chunk.chunk_id)))[:top_k]
 
 

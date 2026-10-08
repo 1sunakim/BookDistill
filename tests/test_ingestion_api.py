@@ -18,6 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from bookdistill.api.app import create_app  # noqa: E402
 from bookdistill.contracts import ParsedDocument  # noqa: E402
 from bookdistill.settings import Settings  # noqa: E402
+from tests.support import migrate_database  # noqa: E402
 
 
 def make_text_pdf() -> bytes:
@@ -62,6 +63,7 @@ class IngestionApiTests(unittest.TestCase):
             max_upload_bytes=2 * 1024 * 1024,
             minimum_text_characters_per_page=10,
         )
+        migrate_database(settings.database_url)
         self.app = create_app(settings)
         self.client = TestClient(self.app)
 
@@ -73,7 +75,7 @@ class IngestionApiTests(unittest.TestCase):
     def test_upload_parse_query_and_deduplicate(self) -> None:
         pdf = make_text_pdf()
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("rag.pdf", io.BytesIO(pdf), "application/pdf")},
             data={"title": "RAG Test Book", "authors": "Alice,Bob", "language": "en"},
         )
@@ -91,7 +93,7 @@ class IngestionApiTests(unittest.TestCase):
             ["parse", "clean", "structure", "chunk", "persist", "index"],
         )
 
-        job_response = self.client.get(f"/v1/jobs/{accepted['job_id']}")
+        job_response = self.client.get(f"/api/v1/document-jobs/{accepted['job_id']}")
         self.assertEqual(job_response.status_code, 200)
         self.assertEqual(job_response.json()["status"], "succeeded")
         self.assertEqual(
@@ -99,17 +101,17 @@ class IngestionApiTests(unittest.TestCase):
             ["validate", "classify", "parse", "clean", "structure", "chunk"],
         )
 
-        book_response = self.client.get(f"/v1/books/{accepted['book_id']}")
+        book_response = self.client.get(f"/api/v1/books/{accepted['book_id']}")
         self.assertEqual(book_response.status_code, 200)
         self.assertEqual(book_response.json()["sha256"], __import__("hashlib").sha256(pdf).hexdigest())
         self.assertEqual(book_response.json()["status"], "ready")
 
-        books_response = self.client.get("/v1/books")
+        books_response = self.client.get("/api/v1/books")
         self.assertEqual(books_response.status_code, 200, books_response.text)
         self.assertEqual([item["book_id"] for item in books_response.json()], [accepted["book_id"]])
 
         document_response = self.client.get(
-            f"/v1/books/{accepted['book_id']}/parsed-document"
+            f"/api/v1/books/{accepted['book_id']}/parsed-document"
         )
         self.assertEqual(document_response.status_code, 200, document_response.text)
         document = ParsedDocument.model_validate(document_response.json())
@@ -120,7 +122,7 @@ class IngestionApiTests(unittest.TestCase):
         )
 
         chapters_response = self.client.get(
-            f"/v1/books/{accepted['book_id']}/chapters"
+            f"/api/v1/books/{accepted['book_id']}/chapters"
         )
         self.assertEqual(chapters_response.status_code, 200, chapters_response.text)
         chapters = chapters_response.json()
@@ -129,7 +131,7 @@ class IngestionApiTests(unittest.TestCase):
         self.assertEqual(chapters[1]["level"], 2)
         self.assertEqual(chapters[1]["parent_id"], chapters[0]["chapter_id"])
 
-        chunks_response = self.client.get(f"/v1/books/{accepted['book_id']}/chunks")
+        chunks_response = self.client.get(f"/api/v1/books/{accepted['book_id']}/chunks")
         self.assertEqual(chunks_response.status_code, 200, chunks_response.text)
         chunks = chunks_response.json()
         self.assertEqual(len(chunks), 2)
@@ -216,7 +218,7 @@ class IngestionApiTests(unittest.TestCase):
         self.assertTrue(chunks_artifact.exists())
 
         duplicate = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("renamed.pdf", io.BytesIO(pdf), "application/pdf")},
             data={"language": "en"},
         )
@@ -228,28 +230,28 @@ class IngestionApiTests(unittest.TestCase):
 
     def test_reprocess_rebuild_and_delete_interfaces(self) -> None:
         uploaded = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("rag.pdf", io.BytesIO(make_text_pdf()), "application/pdf")},
             data={"language": "en"},
         ).json()
         book_id = uploaded["book_id"]
 
         reprocess = self.client.post(
-            f"/v1/books/{book_id}/reprocess",
+            f"/api/v1/books/{book_id}/reprocess",
             json={"idempotency_key": f"reprocess-{book_id}", "max_attempts": 2},
         )
         self.assertEqual(reprocess.status_code, 202, reprocess.text)
         self.assertEqual(reprocess.json()["status"], "succeeded")
         repeated = self.client.post(
-            f"/v1/books/{book_id}/reprocess",
+            f"/api/v1/books/{book_id}/reprocess",
             json={"idempotency_key": f"reprocess-{book_id}", "max_attempts": 2},
         )
         self.assertEqual(repeated.json()["job_id"], reprocess.json()["job_id"])
 
-        chapters = self.client.get(f"/v1/books/{book_id}/chapters").json()
-        chunks_before = self.client.get(f"/v1/books/{book_id}/chunks").json()
+        chapters = self.client.get(f"/api/v1/books/{book_id}/chapters").json()
+        chunks_before = self.client.get(f"/api/v1/books/{book_id}/chunks").json()
         rebuild = self.client.post(
-            f"/v1/books/{book_id}/rebuild",
+            f"/api/v1/books/{book_id}/rebuild",
             json={
                 "from_stage": "chunk",
                 "chapter_ids": [chapters[1]["chapter_id"]],
@@ -258,23 +260,23 @@ class IngestionApiTests(unittest.TestCase):
         )
         self.assertEqual(rebuild.status_code, 202, rebuild.text)
         self.assertEqual(rebuild.json()["status"], "succeeded")
-        chunks_after = self.client.get(f"/v1/books/{book_id}/chunks").json()
+        chunks_after = self.client.get(f"/api/v1/books/{book_id}/chunks").json()
         self.assertEqual(
             [chunk["chunk_id"] for chunk in chunks_after],
             [chunk["chunk_id"] for chunk in chunks_before],
         )
 
         invalid_scope = self.client.post(
-            f"/v1/books/{book_id}/rebuild",
+            f"/api/v1/books/{book_id}/rebuild",
             json={"from_stage": "clean", "chapter_ids": [chapters[0]["chapter_id"]]},
         )
         self.assertEqual(invalid_scope.status_code, 422)
 
         storage_path = self.app.state.settings.storage_root / "books" / book_id
-        deleted = self.client.delete(f"/v1/books/{book_id}")
+        deleted = self.client.delete(f"/api/v1/books/{book_id}")
         self.assertEqual(deleted.status_code, 204, deleted.text)
         self.assertFalse(storage_path.exists())
-        self.assertEqual(self.client.get(f"/v1/books/{book_id}").status_code, 404)
+        self.assertEqual(self.client.get(f"/api/v1/books/{book_id}").status_code, 404)
         self.assertEqual(
             self.client.get(f"/api/v1/jobs/{rebuild.json()['job_id']}").status_code,
             200,
@@ -283,17 +285,17 @@ class IngestionApiTests(unittest.TestCase):
     def test_delete_is_blocked_while_document_job_is_queued(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            app = create_app(
-                Settings(
+            settings = Settings(
                     database_url=f"sqlite:///{(root / 'blocked.db').as_posix()}",
                     storage_root=root / "storage",
                     queue_mode="disabled",
                     max_upload_bytes=2 * 1024 * 1024,
                 )
-            )
+            migrate_database(settings.database_url)
+            app = create_app(settings)
             with TestClient(app) as client:
                 uploaded = client.post(
-                    "/v1/books",
+                    "/api/v1/books",
                     files={
                         "file": (
                             "queued.pdf",
@@ -303,24 +305,27 @@ class IngestionApiTests(unittest.TestCase):
                     },
                     data={"language": "en"},
                 ).json()
-                blocked = client.delete(f"/v1/books/{uploaded['book_id']}")
+                blocked = client.delete(f"/api/v1/books/{uploaded['book_id']}")
                 self.assertEqual(blocked.status_code, 409)
-                self.assertEqual(blocked.json()["detail"]["code"], "BOOK_JOB_ACTIVE")
+                self.assertEqual(blocked.json()["code"], "BOOK_JOB_ACTIVE")
 
     def test_invalid_pdf_header_returns_structured_error(self) -> None:
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("fake.pdf", io.BytesIO(b"not a pdf"), "application/pdf")},
             data={"language": "en"},
+            headers={"X-Trace-ID": "document-error-trace"},
         )
         self.assertEqual(response.status_code, 422)
         payload = response.json()
         self.assertEqual(payload["code"], "INVALID_PDF_HEADER")
-        self.assertEqual(payload["stage"], "validate")
+        self.assertEqual(payload["details"]["stage"], "validate")
+        self.assertEqual(payload["trace_id"], "document-error-trace")
+        self.assertEqual(response.headers["X-Trace-ID"], "document-error-trace")
 
     def test_declared_non_pdf_mime_is_rejected(self) -> None:
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("rag.pdf", io.BytesIO(make_text_pdf()), "text/plain")},
             data={"language": "en"},
         )
@@ -330,7 +335,7 @@ class IngestionApiTests(unittest.TestCase):
     def test_upload_size_limit_is_enforced_while_streaming(self) -> None:
         oversized = b"%PDF-" + b"x" * (2 * 1024 * 1024)
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={"file": ("large.pdf", io.BytesIO(oversized), "application/pdf")},
             data={"language": "en"},
         )
@@ -339,7 +344,7 @@ class IngestionApiTests(unittest.TestCase):
 
     def test_textless_page_fails_as_unsupported_without_ocr(self) -> None:
         response = self.client.post(
-            "/v1/books",
+            "/api/v1/books",
             files={
                 "file": (
                     "scanned.pdf",
@@ -350,7 +355,7 @@ class IngestionApiTests(unittest.TestCase):
             data={"language": "en"},
         )
         self.assertEqual(response.status_code, 202)
-        job = self.client.get(f"/v1/jobs/{response.json()['job_id']}").json()
+        job = self.client.get(f"/api/v1/document-jobs/{response.json()['job_id']}").json()
         self.assertEqual(job["status"], "failed")
         self.assertEqual(job["error"]["code"], "SCANNED_PAGE_UNSUPPORTED")
         self.assertEqual(job["error"]["page_index"], 0)

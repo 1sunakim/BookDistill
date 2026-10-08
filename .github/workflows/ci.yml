@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -c constraints.lock ".[test,postgres,qdrant]"
+      - run: python -m pytest -q
+      - name: Ensure API/runtime never create schemas directly
+        run: '! grep -R "Base.metadata.create_all" src/bookdistill/api src/bookdistill/bootstrap.py src/bookdistill/worker.py'
+      - name: Verify one Alembic head and repeatable migrations
+        run: |
+          test "$(alembic heads | wc -l)" -eq 1
+          export BOOKDISTILL_DATABASE_URL=sqlite:////tmp/bookdistill-ci.db
+          alembic upgrade head
+          alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t bookdistill-api:ci .
+      - run: docker build -t bookdistill-frontend:ci frontend
+
+  docker-e2e:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, docker-build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -c constraints.lock ".[test]"
+      - run: docker compose up -d --build --wait --wait-timeout 240
+      - run: python scripts/docker_e2e.py
+      - if: always()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down -v

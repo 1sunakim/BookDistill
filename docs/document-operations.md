@@ -16,7 +16,7 @@ parse → clean → structure → chunk → persist → index
 ## 全量重新解析
 
 ```http
-POST /v1/books/{book_id}/reprocess
+POST /api/v1/books/{book_id}/reprocess
 Content-Type: application/json
 
 {
@@ -30,7 +30,7 @@ Content-Type: application/json
 ## 按阶段重建
 
 ```http
-POST /v1/books/{book_id}/rebuild
+POST /api/v1/books/{book_id}/rebuild
 Content-Type: application/json
 
 {
@@ -54,7 +54,7 @@ Content-Type: application/json
 ## 删除
 
 ```http
-DELETE /v1/books/{book_id}
+DELETE /api/v1/books/{book_id}
 ```
 
 删除内容包括：原始 PDF、中间 JSON、解析文档、章节、Chunk、旧解析任务和检索索引。通用任务记录作为操作审计保留。如果书籍存在排队、执行中、重试中或请求取消中的文档任务，返回 `409 BOOK_JOB_ACTIVE`。
@@ -63,4 +63,4 @@ DELETE /v1/books/{book_id}
 
 `inline` 模式中 API、文档处理和检索共享同一进程，可以完成完整 Hybrid 闭环。
 
-Celery 模式要求 `BOOKDISTILL_DENSE_BACKEND=qdrant`，Worker 会把 Dense 索引持久化到共享 Qdrant。当前 BM25 仍为进程内实现，因此 API 重启或跨进程查询时 Sparse 路径会暂时降级，Dense 检索仍可使用共享索引。共享 Sparse 后端属于检索分块的下一阶段工作，不影响文档任务的阶段恢复、取消与 Worker 回收。
+Celery 模式要求 `BOOKDISTILL_DENSE_BACKEND=qdrant` 且 `BOOKDISTILL_SPARSE_BACKEND=qdrant`。Worker 会把 Dense 与 Qdrant Sparse Vector 一并持久化，API 和 Worker 重启后均直接读取共享索引；不再使用跨进程不可见的进程内 BM25。

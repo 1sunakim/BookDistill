@@ -4,6 +4,8 @@ from .errors import (
     GenerationError,
     InvalidCitationError,
     InvalidModelOutputError,
+    ModelOutputTruncatedError,
+    ModelStateConflictError,
     ProviderConfigurationError,
     ProviderRequestError,
 )
@@ -14,7 +16,8 @@ from .distillation import DistillationService
 from .orchestration import RetrieveAndAnswerService
 from .ports import LLMProvider, ProviderResult
 from .prompts import PromptDefinition, PromptRegistry, default_prompt_registry
-from .providers import OpenAICompatibleProvider, StaticLLMProvider
+from .providers import DemoLLMProvider, OpenAICompatibleProvider, StaticLLMProvider
+from .langchain_provider import LangChainChatProvider
 from .local_provider import TransformersLocalProvider
 from .service import RagAnswerService
 
@@ -22,6 +25,8 @@ __all__ = [
     "GenerationError",
     "InvalidCitationError",
     "InvalidModelOutputError",
+    "ModelOutputTruncatedError",
+    "ModelStateConflictError",
     "ProviderConfigurationError",
     "ProviderRequestError",
     "LLMGateway",
@@ -35,7 +40,9 @@ __all__ = [
     "ProviderResult",
     "RagAnswerService",
     "StaticLLMProvider",
+    "DemoLLMProvider",
     "OpenAICompatibleProvider",
+    "LangChainChatProvider",
     "TransformersLocalProvider",
     "build_generation_service",
     "build_distillation_service",

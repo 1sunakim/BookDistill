@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from collections.abc import Callable
+import re
 from typing import TypeVar
 from uuid import UUID
 
@@ -43,14 +45,27 @@ class DistillationService:
         TaskType.VIEWPOINT_COMPARISON: "viewpoint-comparison.v1",
     }
 
-    def __init__(self, gateway: LLMGateway) -> None:
+    def __init__(self, gateway: LLMGateway, *,
+                 source_validator: Callable[[list[Evidence]], None] | None = None,
+                 minimum_claim_support_overlap: float = 0.0) -> None:
         self._gateway = gateway
+        self.source_validator = source_validator
+        self.minimum_claim_support_overlap = minimum_claim_support_overlap
 
     def summarize(self, request: SummaryRequest) -> SummaryResponse:
         llm, draft = self._run(
             TaskType.SUMMARY, request.payload, request.trace_context,
             request.generation_config, SummaryDraft,
         )
+        self._validate_support(
+            draft.overview,
+            [item.evidence_id for item in request.payload.evidence],
+            request.payload.evidence,
+        )
+        for section in draft.sections:
+            self._validate_support(section.content, section.evidence_ids, request.payload.evidence)
+        for takeaway in draft.key_takeaways:
+            self._validate_support(takeaway.text, takeaway.evidence_ids, request.payload.evidence)
         cited = [item for section in draft.sections for item in section.evidence_ids]
         cited += [item for takeaway in draft.key_takeaways for item in takeaway.evidence_ids]
         character_count = len(draft.overview) + sum(
@@ -71,6 +86,14 @@ class DistillationService:
             TaskType.KNOWLEDGE_EXTRACTION, request.payload, request.trace_context,
             request.generation_config, KnowledgeDraft,
         )
+        for point in draft.points:
+            self._validate_support(
+                " ".join([
+                    point.concept, point.definition, *point.attributes,
+                    *point.prerequisites, *point.related_concepts, *point.misconceptions,
+                ]),
+                point.evidence_ids, request.payload.evidence,
+            )
         if len(draft.points) > request.payload.maximum_points:
             raise InvalidModelOutputError(
                 "model returned more knowledge points than requested",
@@ -94,6 +117,11 @@ class DistillationService:
             TaskType.QUESTION_GENERATION, request.payload, request.trace_context,
             request.generation_config, QuestionDraft,
         )
+        for question in draft.questions:
+            self._validate_support(
+                f"{question.answer} {question.explanation}",
+                question.evidence_ids, request.payload.evidence,
+            )
         if len(draft.questions) != request.payload.count:
             raise InvalidModelOutputError(
                 "model returned a different question count than requested",
@@ -145,7 +173,10 @@ class DistillationService:
             if invalid:
                 raise InvalidCitationError(invalid)
             cited.extend(viewpoint.evidence_ids)
+            self._validate_support(viewpoint.viewpoint, viewpoint.evidence_ids, group.evidence)
         for section in (draft.commonalities, draft.differences, draft.applicability):
+            for statement in section:
+                self._validate_support(statement.text, statement.evidence_ids, all_evidence)
             cited.extend(item for statement in section for item in statement.evidence_ids)
         return ViewpointResponse(
             **draft.model_dump(), citations=_citations(all_evidence, cited), trace=_trace(llm)
@@ -159,6 +190,13 @@ class DistillationService:
         generation_config,
         draft_model: type[DraftT],
     ):
+        evidence = (
+            list(getattr(payload, "evidence"))
+            if hasattr(payload, "evidence")
+            else [item for group in getattr(payload, "books", []) for item in group.evidence]
+        )
+        if self.source_validator:
+            self.source_validator(evidence)
         request = LLMRequest(
             task_type=task_type,
             prompt_version=self.prompt_versions[task_type],
@@ -172,6 +210,26 @@ class DistillationService:
             trace_context=trace_context,
         )
         return self._gateway.generate(request, draft_model)
+
+    def _validate_support(
+        self, text: str, evidence_ids: list[UUID], evidence: list[Evidence],
+    ) -> None:
+        if self.minimum_claim_support_overlap <= 0:
+            return
+        by_id = {item.evidence_id: item.text for item in evidence}
+        if any(item not in by_id for item in evidence_ids):
+            return  # membership is reported by _citations with precise IDs
+        tokenize = lambda value: set(re.findall(
+            r"[a-zA-Z0-9_]+|[\u3400-\u9fff]", value.casefold()
+        ))
+        tokens = tokenize(text)
+        sources = tokenize(" ".join(by_id[item] for item in evidence_ids))
+        overlap = len(tokens & sources) / len(tokens) if tokens else 0
+        if overlap < self.minimum_claim_support_overlap:
+            raise InvalidModelOutputError(
+                "distilled statement is not supported by its cited evidence",
+                repair_attempted=False,
+            )
 
 
 def _citations(evidence: list[Evidence], cited_ids: list[UUID]) -> list[Citation]:

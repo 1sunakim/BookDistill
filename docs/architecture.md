@@ -1,13 +1,13 @@
 # 系统架构
 
-BookDistill 采用模块化单体后端、独立前端和可替换基础设施。FastAPI 是组合入口；Celery Worker 执行长任务；PostgreSQL 保存业务与任务状态；Redis 负责投递；Qdrant 保存 Dense 向量；文件存储保存 PDF、中间产物和评测结果。
+BookDistill 采用模块化单体后端、独立前端和可替换基础设施。FastAPI 是组合入口；Celery Worker 执行长任务；PostgreSQL 保存业务与任务状态；Redis 负责投递；Qdrant 保存共享 Dense 与 Sparse 向量及检索元数据；文件存储保存 PDF、中间产物和评测结果。
 
 ```text
 Browser
   → Frontend
   → FastAPI
       ├─ document_processing → file storage / PostgreSQL
-      ├─ retrieval          → BM25 / Qdrant / reranker
+      ├─ retrieval          → Qdrant Dense + Sparse / RRF / reranker
       ├─ generation         → LLM provider
       ├─ evaluation         → datasets / reports
       └─ task_system        → PostgreSQL / Redis / Celery
@@ -41,4 +41,3 @@ Browser
 - Qdrant 点 ID 使用稳定 `chunk_id`，写入采用 upsert。
 - 删除与重建由文档服务协调数据库、文件和检索索引。
 - 大型任务输出保存引用，任务表只保存检查点与少量元数据。
-

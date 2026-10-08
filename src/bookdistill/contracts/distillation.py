@@ -21,7 +21,7 @@ from .retrieval import Evidence
 
 class EvidencePayload(GenerationModel):
     evidence: list[Evidence] = Field(min_length=1, max_length=100)
-    language: str = Field(default="zh-CN", min_length=2, max_length=35)
+    language: str = Field(default="bilingual", min_length=2, max_length=35)
 
     @model_validator(mode="after")
     def unique_evidence(self) -> "EvidencePayload":
@@ -168,7 +168,7 @@ class BookEvidenceGroup(EvidencePayload):
 class ViewpointPayload(GenerationModel):
     question: str = Field(min_length=1, max_length=4000)
     books: list[BookEvidenceGroup] = Field(min_length=2, max_length=10)
-    language: str = Field(default="zh-CN", min_length=2, max_length=35)
+    language: str = Field(default="bilingual", min_length=2, max_length=35)
 
     @model_validator(mode="after")
     def unique_books_and_evidence(self) -> "ViewpointPayload":

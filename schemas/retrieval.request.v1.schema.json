@@ -62,6 +62,27 @@
           "minimum": 1,
           "title": "Max Per Chapter",
           "type": "integer"
+        },
+        "context_window": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Context Window",
+          "type": "integer"
+        },
+        "context_token_budget": {
+          "default": 3000,
+          "maximum": 32000,
+          "minimum": 128,
+          "title": "Context Token Budget",
+          "type": "integer"
+        },
+        "max_context_tokens_per_evidence": {
+          "default": 800,
+          "maximum": 8000,
+          "minimum": 64,
+          "title": "Max Context Tokens Per Evidence",
+          "type": "integer"
         }
       },
       "title": "RetrievalConfig",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol, Sequence
 from uuid import UUID
 
@@ -13,6 +14,10 @@ from bookdistill.contracts import Chunk, RetrievalScope
 class SearchHit:
     chunk: Chunk
     score: float
+    book_title: str | None = None
+    index_version: str | None = None
+    model_name: str | None = None
+    indexed_at: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -25,6 +30,16 @@ class FusedCandidate:
     fusion_score: float = 0.0
     fusion_rank: int = 0
     rerank_score: float | None = None
+    book_title: str | None = None
+    index_version: str | None = None
+    indexed_at: datetime | None = None
+    model_names: set[str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SparseVectorData:
+    indices: list[int]
+    values: list[float]
 
 
 class EmbeddingProvider(Protocol):
@@ -37,7 +52,16 @@ class EmbeddingProvider(Protocol):
 
 
 class DenseIndex(Protocol):
-    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None: ...
+    def upsert(
+        self,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+        *,
+        book_titles: dict[UUID, str] | None = None,
+        index_version: str | None = None,
+        model_name: str | None = None,
+        indexed_at: datetime | None = None,
+    ) -> None: ...
 
     def delete_book(self, book_id: UUID) -> int: ...
 
@@ -45,13 +69,31 @@ class DenseIndex(Protocol):
 
     def count(self) -> int: ...
 
+    def get_many(self, chunk_ids: Sequence[UUID]) -> list[SearchHit]: ...
+
 
 class SparseIndex(Protocol):
-    def upsert(self, chunks: Sequence[Chunk]) -> None: ...
+    def upsert(
+        self,
+        chunks: Sequence[Chunk],
+        *,
+        book_titles: dict[UUID, str] | None = None,
+        index_version: str | None = None,
+        model_name: str | None = None,
+        indexed_at: datetime | None = None,
+    ) -> None: ...
 
     def delete_book(self, book_id: UUID) -> int: ...
 
     def search(self, query: str, scope: RetrievalScope, top_k: int) -> list[SearchHit]: ...
+
+
+class SparseEmbeddingProvider(Protocol):
+    model_name: str
+
+    def embed_documents(self, texts: Sequence[str]) -> list[SparseVectorData]: ...
+
+    def embed_query(self, text: str) -> SparseVectorData: ...
 
 
 class Reranker(Protocol):

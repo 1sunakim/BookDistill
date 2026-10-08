@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0-draft",
+  "provenance": "AI-authored source-grounded candidates; not human annotations",
+  "page_convention": "zero-based physical PDF index; viewer page = index + 1; printed page is separate",
+  "groups": [
+    {"id":"react","split":"dev","type":"definition","questions":["ReAct 循环有哪些步骤，何时结束？","智能体怎样在思考、动作和结果之间反复推进任务？","What are the steps and stopping condition of the ReAct loop?"],"answer":"先思考，再调用工具行动，观察工具返回结果后继续思考，直到任务完成。","points":[{"text":"思考、行动、观察后继续思考","page":20,"quote":"模型先思考当前应该做什么，然后调用工具行动，再观察工具返回的"},{"text":"循环直到任务完成","page":20,"quote":"直到任务完成"}]},
+    {"id":"trajectory","split":"dev","type":"fact","questions":["Agent trajectory 保存哪些动态消息？","轨迹与静态前缀如何组成 Agent 上下文？","What belongs to the dynamic trajectory rather than the static prefix?"],"answer":"轨迹包含用户消息、模型回复（思考与工具调用）和工具执行结果；系统提示词与工具定义属于静态前缀。上下文由静态前缀和轨迹组成。","points":[{"text":"动态轨迹包含用户、模型回复和工具结果","page":20,"quote":"用户消息、模型回复（包括思考过程和工具调用）、工具执行结果"},{"text":"静态前缀是系统提示词和工具定义","page":20,"quote":"静态前缀（系统提示词+ 工具定义）"}]},
+    {"id":"roles","split":"dev","type":"entity_or_number","questions":["消息列表有哪些角色？tools 是第五种消息角色吗？","四种 role 和工具定义字段之间有什么区别？","List the four message roles and explain whether tools is a message role."],"answer":"四种角色是 system、user、assistant、tool；工具定义通过请求顶层 tools 字段传入，不是消息角色。","points":[{"text":"system、user、assistant、tool 四种角色","page":36,"quote":"system、user、assistant"},{"text":"tools 是独立字段而非消息角色","page":36,"quote":"tools 字段传入，并不是一种消息角色"}]},
+    {"id":"memory","split":"test","type":"cross_paragraph","questions":["书中的用户记忆三层次评估框架是什么？","基础回忆、多会话检索和主动服务分别考察什么？","How do basic recall, multi-session retrieval and proactive service differ?"],"answer":"基础回忆精确返回直接提供的信息；多会话检索找全并消歧多个会话信息；主动服务关联跨会话信息，提供预见性的帮助。","points":[{"text":"基础回忆返回直接提供的无歧义信息","page":74,"quote":"第一层：基础回忆"},{"text":"多会话检索找全信息并推理消歧","page":75,"quote":"第二层：多会话检索"},{"text":"主动服务综合跨会话信息提供预见性帮助","page":75,"quote":"第三层：主动服务"}]},
+    {"id":"rag","split":"dev","type":"definition","questions":["RAG 的检索器和生成器分别做什么？","怎样让模型使用训练结束后更新的外部知识？","How does retrieval-augmented generation use an updatable external knowledge base?"],"answer":"检索器从可更新的知识库找出相关片段，片段作为上下文交给生成器生成答案，无需重新训练模型。","points":[{"text":"检索相关片段并注入上下文生成答案","page":83,"quote":"检索相关片段→注入上下文→LLM 基于上下文生成答案"},{"text":"外部知识更新不要求重新训练模型","page":83,"quote":"而不需要重新训练模型"}]},
+    {"id":"location","split":"dev","type":"fact","questions":["请定位 2.2.1『消息的四种角色』的小节和印刷页码。","哪一页解释 tool_call_id 将工具结果关联到工具调用？请给出章节。","Locate section 2.2.1 and the printed page explaining tool_call_id."],"answer":"位于 2.2.1『消息的四种角色』，PDF 从零起算索引35（阅读器第36页），印刷页码28；tool_call_id 将工具结果关联到对应调用。","points":[{"text":"章节2.2.1，物理索引35，印刷页28","page":35,"quote":"2.2.1 消息的四种角色"},{"text":"tool_call_id 关联工具调用请求","page":35,"quote":"tool_call_id 与对应的工具调用请求关联"}]},
+    {"id":"rubric","split":"test","type":"cross_paragraph","questions":["Rubric 的四条设计准则是什么？","评分标准怎样避免只有空泛形容词，如何处理幻觉否决项？","What makes a rubric self-contained, and how does the hallucination veto work?"],"answer":"评分标准应基于专家指导、全面覆盖、区分重要性权重并支持否决、自包含且可独立操作；用可核验行为和边界案例打分，幻觉可一票否决。","points":[{"text":"专家指导、全面覆盖和重要性权重","page":173,"quote":"（1）基于专家指导"},{"text":"自包含且每项独立可操作","page":174,"quote":"（4）自包含评估"},{"text":"幻觉触发否决而非被其他高分抵消","page":173,"quote":"无论其他维度表现多优秀，只要出现虚假信息就必"}]},
+    {"id":"comparison","split":"test","type":"entity_or_number","questions":["表6-4三种记忆方案各答对多少题？混合方案是否最好？","对同一60题，结构化卡片、纯RAG与混合方案的总体成功率是多少？","In Table 6-4, does the hybrid memory system beat Advanced JSON Cards overall?"],"answer":"Advanced JSON Cards为41/60（68.3%），RAG为29/60（48.3%），混合为40/60（66.7%）；混合没有超过结构化卡片。","points":[{"text":"结构化41/60、RAG29/60、混合40/60","page":175,"quote":"68.3%（41/60）"},{"text":"混合并未自然胜出","page":175,"quote":"混合方案并没有自然胜出"}]},
+    {"id":"multihop","split":"dev","type":"cross_chapter","questions":["结合 ReAct 和 RAG 两节，说明检索结果如何进入 Agent 的下一步决策？","Connect the ReAct loop with RAG: how can retrieved knowledge inform a later reasoning step?"],"answer":"RAG 把检索到的片段注入上下文；ReAct 根据上下文思考、调用工具并观察结果，结果进入轨迹后供后续调用继续决策。","points":[{"text":"RAG 将检索片段注入上下文","page":83,"quote":"检索相关片段→注入上下文→LLM 基于上下文生成答案"},{"text":"ReAct 观察结果并继续思考","page":20,"quote":"模型先思考当前应该做什么，然后调用工具行动，再观察工具返回的"}]}
+  ],
+  "unanswerable": [
+    {"id":"u01","split":"dev","question":"这本书作者的私人银行账户余额是多少？","reason":"资料未给出作者私人账户余额。"},
+    {"id":"u02","split":"dev","question":"给出 BookDistill 本项目上周生产环境 RAG 的准确率和完整请求日志。","reason":"本书不能提供本项目未公布的生产指标和日志。"},
+    {"id":"u03","split":"dev","question":"What is the author's private API key?","reason":"没有提供作者私人密钥。"},
+    {"id":"u04","split":"dev","question":"仅根据消息角色小节，给出表6-4中混合系统的总体成功率。","scope_group":"location","reason":"所选消息角色小节不含表6-4；书中其他章节有答案也应在此范围拒答。"},
+    {"id":"u05","split":"test","question":"表6-4这60道题中编号第61题的标准答案是什么？","reason":"60题评测不能提供不存在的第61题答案。"},
+    {"id":"u06","split":"test","question":"According to Table 6-4, what is the exact production latency in milliseconds for my company's agent?","reason":"表中没有用户公司生产环境的精确延迟。"}
+  ]
+}

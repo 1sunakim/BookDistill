@@ -23,22 +23,22 @@ python -m alembic upgrade head
 ## API
 
 ```text
-POST /v1/books
-GET  /v1/books
-POST /v1/books/{book_id}/reprocess
-POST /v1/books/{book_id}/rebuild
-DELETE /v1/books/{book_id}
-GET  /v1/books/{book_id}
-GET  /v1/jobs/{job_id}
-GET  /v1/books/{book_id}/parsed-document
-GET  /v1/books/{book_id}/chapters
-GET  /v1/books/{book_id}/chunks
+POST /api/v1/books
+GET  /api/v1/books
+POST /api/v1/books/{book_id}/reprocess
+POST /api/v1/books/{book_id}/rebuild
+DELETE /api/v1/books/{book_id}
+GET  /api/v1/books/{book_id}
+GET  /api/v1/document-jobs/{job_id}
+GET  /api/v1/books/{book_id}/parsed-document
+GET  /api/v1/books/{book_id}/chapters
+GET  /api/v1/books/{book_id}/chunks
 ```
 
 上传使用 `multipart/form-data`，字段包括 `file`、可选 `title`、逗号分隔的 `authors` 和 `language`。
 
 ```powershell
-curl.exe -X POST "http://127.0.0.1:8000/v1/books" `
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/books" `
   -F "file=@C:\books\example.pdf;type=application/pdf" `
   -F "title=示例书籍" `
   -F "authors=作者一,作者二" `
@@ -54,7 +54,7 @@ Chunk 默认使用 `regex-v1` 中英文确定性 Tokenizer，最大 512 Token、
 
 当前 PDF 处理全部通过通用任务调度器触发：本地默认 `inline`，部署环境使用 Celery。上传请求只执行流式大小限制、基础 PDF 校验、文件保存和任务登记，不再通过 FastAPI `BackgroundTasks` 执行解析。
 
-文档处理注册为通用任务类型 `document.process`，包含 `parse → clean → structure → chunk → persist → index` 六个持久化阶段。阶段产物原子落盘，失败重试会跳过输入未变化的成功阶段。上传响应中的 `task_id` 用于查询 `/api/v1/jobs/{task_id}`；旧 `job_id` 暂时保留用于兼容原解析状态接口。重新解析和重建接口的请求格式见 `docs/document-operations.md`。
+文档处理注册为通用任务类型 `document.process`，包含 `parse → clean → structure → chunk → persist → index` 六个持久化阶段。阶段产物原子落盘，失败重试会跳过输入未变化的成功阶段。上传响应中的 `task_id` 用于查询 `/api/v1/jobs/{task_id}`；解析兼容状态通过 `/api/v1/document-jobs/{job_id}` 查询。重新解析和重建接口的请求格式见 `docs/document-operations.md`。
 
 ### 工程与任务系统 MVP
 
@@ -66,18 +66,20 @@ GET  /api/v1/jobs
 GET  /api/v1/jobs/{job_id}
 POST /api/v1/jobs/{job_id}/cancel
 POST /api/v1/jobs/{job_id}/retry
-GET  /health/live
-GET  /health/ready
-GET  /metrics
+GET  /api/v1/health/live
+GET  /api/v1/health/ready
+GET  /api/v1/metrics
 ```
 
 它支持父子任务、幂等键、阶段检查点、指数退避重试、协作式取消、自动心跳、失联 Worker 回收、结构化错误和 Trace ID。`system.demo` 是基础设施验收任务，不包含解析、检索或生成逻辑。详细设计和接入方式见 `docs/task-system.md`。
 
-完整运行环境可用 `docker compose up --build` 启动 API、Worker、Beat、PostgreSQL、Redis 和 Qdrant。文档任务、生成任务以及后续任务类型都通过同一个 `JobHandler` 接口接入。
+完整运行环境可用 `docker compose up --build` 一条命令启动前端、API、Worker、Beat、PostgreSQL、Redis 和 Qdrant。前端位于 `http://127.0.0.1:3000`，API 位于 `http://127.0.0.1:8000`；默认仅绑定本机回环地址。以后允许网络访问时，可通过 `BOOKDISTILL_PUBLIC_API_URL`、`BOOKDISTILL_CORS_ORIGINS`、`BOOKDISTILL_API_KEY` 以及反向代理配置扩展，不需要改 API 路由。
+
+数据库结构只由 Alembic 管理；直接运行 API 前须先执行 `alembic upgrade head`。Compose 中的 `migrate` 服务会自动执行迁移，重复启动是安全的。
 
 ### RAG 检索 MVP
 
-检索模块只消费标准 `Chunk`，与 PDF 解析实现隔离。当前提供中文 BGE Dense、Qdrant、BM25、RRF、CrossEncoder/语义相似度 Rerank、范围过滤、去重和可追溯 Evidence；Hashing 与词元重叠实现只用于无模型测试基线：
+检索模块只消费标准 `Chunk`，与 PDF 解析实现隔离。当前提供中文 BGE Dense、共享 Qdrant Sparse Vector、RRF、CrossEncoder/语义相似度 Rerank、独立超时降级、相邻 Chunk 上下文预算、范围过滤、去重和可追溯 Evidence；Hashing、进程内 BM25 与词元重叠实现只用于无模型测试基线：
 
 ```text
 POST   /api/v1/retrieval/index/chunks
@@ -87,7 +89,7 @@ POST   /api/v1/retrieval/search
 
 具体接口和替换生产检索组件的方式见 `docs/retrieval-mvp.md`。
 
-本地测试默认使用内存 Dense 索引；Compose 设置 `BOOKDISTILL_DENSE_BACKEND=qdrant`，将 Dense 向量与完整 `Chunk` Payload 持久化到 Qdrant。
+本地测试默认使用内存索引；Compose 同时设置 `BOOKDISTILL_DENSE_BACKEND=qdrant` 和 `BOOKDISTILL_SPARSE_BACKEND=qdrant`，将 Dense/Sparse 向量、完整 `Chunk`、书名和索引元数据持久化到 Qdrant，供 API 与 Worker 共享。
 
 ### 可信回答与真实模型
 
@@ -96,6 +98,7 @@ POST   /api/v1/retrieval/search
 ```text
 POST /api/v1/generation/rag-answer       # Evidence → Answer
 POST /api/v1/rag/answer                  # Query → Retrieval → Answer
+POST /api/v1/rag/answer/stream           # staged SSE streaming
 POST /api/v1/generation/rag-answer/jobs  # Evidence → queued Answer
 POST /api/v1/generation/summary          # 章节/全书摘要
 POST /api/v1/generation/knowledge-points # 知识点
@@ -103,9 +106,10 @@ POST /api/v1/generation/questions        # 复习题
 POST /api/v1/generation/viewpoint-comparison # 多书观点比较
 ```
 
-真实模型使用 OpenAI-compatible Chat Completions 适配器，配置方式见
-`docs/generation-mvp.md` 和 `.env.example`。默认关闭外部模型调用；本地任务默认以内联
-模式执行，Compose 环境使用 Redis/Celery。
+默认启用零密钥 `demo-extractive-v1`，可实际跑通检索、回答、引用和原页回查；
+正式质量验收可切换 DeepSeek 或其他 OpenAI-compatible Chat Completions 模型。
+配置与发布门禁见 `docs/generation-mvp.md`、`docs/generation-acceptance.md` 和
+`.env.example`。本地任务默认以内联模式执行，Compose 环境使用 Redis/Celery。
 
 ### 评测中心 API
 
@@ -150,3 +154,5 @@ python -m unittest discover -s tests -v
 - [部署](docs/deployment.md)
 - [排障](docs/troubleshooting.md)
 - [演示脚本](docs/demo-script.md)
+- [生成与知识蒸馏验收](docs/generation-acceptance.md)
+- [DeepSeek RAG 安全排查](docs/deepseek-rag-diagnostics.md)

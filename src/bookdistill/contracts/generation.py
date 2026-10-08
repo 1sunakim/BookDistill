@@ -42,12 +42,18 @@ class TraceContext(GenerationModel):
     trace_id: UUID
 
 
+class ConversationTurn(GenerationModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=20_000)
+
+
 class RagAnswerPayload(GenerationModel):
     question: str = Field(min_length=1, max_length=4000)
     scope: RetrievalScope = Field(default_factory=RetrievalScope)
     evidence: list[Evidence] = Field(default_factory=list, max_length=20)
-    language: str = Field(default="zh-CN", min_length=2, max_length=35)
+    language: str = Field(default="bilingual", min_length=2, max_length=35)
     max_answer_characters: int = Field(default=3000, ge=1, le=20_000)
+    conversation_history: list[ConversationTurn] = Field(default_factory=list, max_length=12)
 
     @model_validator(mode="after")
     def validate_evidence(self) -> "RagAnswerPayload":
@@ -161,6 +167,24 @@ class RagAnswerResponse(GenerationModel):
     repair_attempted: bool = False
     created_at: datetime
 
+    @model_validator(mode="after")
+    def validate_answer_state_and_citations(self) -> "RagAnswerResponse":
+        if self.insufficient_evidence:
+            if self.claims or self.citations:
+                raise ValueError(
+                    "an insufficient-evidence response cannot contain claims or citations"
+                )
+            return self
+        if not self.claims or not self.citations:
+            raise ValueError(
+                "a supported response requires claims and enriched citations"
+            )
+        claimed = {item for claim in self.claims for item in claim.evidence_ids}
+        cited = {item.evidence_id for item in self.citations}
+        if claimed != cited:
+            raise ValueError("response citations must exactly match claimed evidence IDs")
+        return self
+
 
 class RetrieveAndAnswerRequest(GenerationModel):
     """Composition contract; retrieval and generation remain separate internally."""
@@ -171,8 +195,10 @@ class RetrieveAndAnswerRequest(GenerationModel):
     scope: RetrievalScope = Field(default_factory=RetrievalScope)
     retrieval_config: RetrievalConfig = Field(default_factory=RetrievalConfig)
     generation_config: GenerationConfig = Field(default_factory=GenerationConfig)
-    language: str = Field(default="zh-CN", min_length=2, max_length=35)
+    language: str = Field(default="bilingual", min_length=2, max_length=35)
     max_answer_characters: int = Field(default=3000, ge=1, le=20_000)
+    conversation_id: UUID | None = None
+    history_window: int = Field(default=6, ge=0, le=12)
 
 
 class RetrieveAndAnswerResponse(GenerationModel):

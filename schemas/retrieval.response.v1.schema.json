@@ -247,6 +247,25 @@
           "minLength": 1,
           "title": "Retrieval Version",
           "type": "string"
+        },
+        "context_chunk_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Context Chunk Ids",
+          "type": "array"
+        },
+        "context_expanded": {
+          "default": false,
+          "title": "Context Expanded",
+          "type": "boolean"
+        },
+        "estimated_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Tokens",
+          "type": "integer"
         }
       },
       "required": [
@@ -336,6 +355,128 @@
           "default": false,
           "title": "Rerank Applied",
           "type": "boolean"
+        },
+        "dense_status": {
+          "default": "skipped",
+          "enum": [
+            "skipped",
+            "hit",
+            "empty",
+            "timeout",
+            "error"
+          ],
+          "title": "Dense Status",
+          "type": "string"
+        },
+        "sparse_status": {
+          "default": "skipped",
+          "enum": [
+            "skipped",
+            "hit",
+            "empty",
+            "timeout",
+            "error"
+          ],
+          "title": "Sparse Status",
+          "type": "string"
+        },
+        "rerank_status": {
+          "default": "skipped",
+          "enum": [
+            "skipped",
+            "hit",
+            "empty",
+            "timeout",
+            "error"
+          ],
+          "title": "Rerank Status",
+          "type": "string"
+        },
+        "dense_hit_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Dense Hit Count",
+          "type": "integer"
+        },
+        "sparse_hit_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sparse Hit Count",
+          "type": "integer"
+        },
+        "rerank_input_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Rerank Input Count",
+          "type": "integer"
+        },
+        "dense_degraded": {
+          "default": false,
+          "title": "Dense Degraded",
+          "type": "boolean"
+        },
+        "sparse_degraded": {
+          "default": false,
+          "title": "Sparse Degraded",
+          "type": "boolean"
+        },
+        "dense_timeout_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Dense Timeout Ms",
+          "type": "integer"
+        },
+        "sparse_timeout_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sparse Timeout Ms",
+          "type": "integer"
+        },
+        "rerank_timeout_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Rerank Timeout Ms",
+          "type": "integer"
+        },
+        "index_versions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Index Versions",
+          "type": "array"
+        },
+        "model_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Model Names",
+          "type": "array"
+        },
+        "chunk_versions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chunk Versions",
+          "type": "array"
+        },
+        "index_generated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Generated At"
+        },
+        "context_token_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Context Token Count",
+          "type": "integer"
         },
         "candidates": {
           "items": {

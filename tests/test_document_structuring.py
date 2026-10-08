@@ -16,14 +16,23 @@ from bookdistill.document_processing.cleaning import DocumentCleaner  # noqa: E4
 from bookdistill.document_processing.structuring import ChapterStructurer  # noqa: E402
 
 
-def block(page: int, order: int, text: str, y0: float, y1: float, size: float) -> TextBlock:
+def block(
+    page: int,
+    order: int,
+    text: str,
+    y0: float,
+    y1: float,
+    size: float,
+    *,
+    raw_text: str | None = None,
+) -> TextBlock:
     return TextBlock(
         block_id=uuid4(),
         page_index=page,
         block_index=order,
         reading_order=order,
         content_type="paragraph",
-        raw_text=text,
+        raw_text=raw_text or text,
         text=text,
         bbox=BoundingBox(x0=50, y0=y0, x1=540, y1=y1),
         style=TextStyle(font_name="Test", font_size=size, bold=size >= 16, italic=False),
@@ -100,6 +109,81 @@ class DocumentStructuringTests(unittest.TestCase):
         self.assertEqual(chapters[1].level, 2)
         self.assertEqual(chapters[1].parent_id, chapters[0].chapter_id)
         self.assertEqual(chapters[0].normalized_title, "Foundations")
+
+    def test_circled_diagram_steps_do_not_create_false_chapters(self) -> None:
+        book_id = uuid4()
+        heading = block(0, 0, "1 Foundations", 70, 95, 20)
+        diagram_step = block(
+            0,
+            1,
+            "1 Collect evidence",
+            150,
+            175,
+            16,
+            raw_text="① Collect evidence",
+        )
+        document = ParsedDocument(
+            document_id=uuid4(),
+            book_id=book_id,
+            parser_name="test",
+            parser_version="1",
+            parse_config_sha256="c" * 64,
+            pages=[
+                Page(
+                    page_index=0,
+                    width=595,
+                    height=842,
+                    page_type="text",
+                    blocks=[
+                        heading,
+                        diagram_step,
+                        block(0, 2, "Body content with details.", 200, 240, 11),
+                    ],
+                )
+            ],
+            created_at=datetime.now(UTC),
+        )
+
+        chapters = ChapterStructurer().build(document)
+
+        self.assertEqual([chapter.title for chapter in chapters], ["1 Foundations"])
+
+    def test_bare_decimal_diagram_value_does_not_create_false_chapter(self) -> None:
+        book_id = uuid4()
+        heading = block(0, 0, "1 Foundations", 70, 95, 20)
+        diagram_value = block(
+            0,
+            1,
+            "0.63\n(opens north)",
+            150,
+            185,
+            16,
+        )
+        document = ParsedDocument(
+            document_id=uuid4(),
+            book_id=book_id,
+            parser_name="test",
+            parser_version="1",
+            parse_config_sha256="d" * 64,
+            pages=[
+                Page(
+                    page_index=0,
+                    width=595,
+                    height=842,
+                    page_type="text",
+                    blocks=[
+                        heading,
+                        diagram_value,
+                        block(0, 2, "Body content with details.", 210, 250, 11),
+                    ],
+                )
+            ],
+            created_at=datetime.now(UTC),
+        )
+
+        chapters = ChapterStructurer().build(document)
+
+        self.assertEqual([chapter.title for chapter in chapters], ["1 Foundations"])
 
 
 if __name__ == "__main__":

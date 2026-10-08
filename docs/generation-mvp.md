@@ -24,6 +24,7 @@ RagAnswerRequest → LLMRequest → Prompt Registry → LLM Gateway
 
 - `POST /api/v1/generation/rag-answer`：使用调用方提供的 Evidence 同步回答。
 - `POST /api/v1/rag/answer`：执行检索并同步回答。
+- `POST /api/v1/rag/answer/stream`：SSE 分阶段返回检索、回答增量与引用。
 - `POST /api/v1/generation/rag-answer/jobs`：创建可重试的异步生成任务。
 - `POST /api/v1/generation/summary`：生成章节或全书摘要。
 - `POST /api/v1/generation/knowledge-points`：提取概念、定义和常见误区。
@@ -31,6 +32,10 @@ RagAnswerRequest → LLMRequest → Prompt Registry → LLM Gateway
 - `POST /api/v1/generation/viewpoint-comparison`：按书生成观点并比较异同。
 - 上述四个蒸馏路径追加 `/jobs`：通过任务系统执行。
 - `GET /api/v1/jobs/{job_id}`：读取异步结果和阶段状态。
+- `POST/GET /api/v1/conversations`：创建会话并读取持久化消息。
+- `GET /api/v1/generation/runs/by-request/{request_id}`：验收 Prompt、模型、Token、Evidence 与引用。
+- `GET/PATCH /api/v1/generation/artifacts/{artifact_id}`：读取或创建人工编辑版本。
+- `POST /api/v1/generation/artifacts/{artifact_id}/regenerate`：从保存的输入重新生成新版本。
 
 ## 本地模型配置
 
@@ -68,18 +73,26 @@ BookDistill 时，基座和 LoRA 均未能通过 `RagAnswerDraft` Schema 的一�
 ## API 模型配置
 
 OpenAI-compatible Chat Completions 适配器仍然保留，可用于支持该协议的模型
-厂商。默认关闭真实模型：
+厂商。默认 `demo` Provider 无需密钥即可验证完整工程链路；它只做抽取式输出，
+不作为模型质量结论。DeepSeek 待填配置为：
 
 ```text
 BOOKDISTILL_LLM_PROVIDER=openai-compatible
-BOOKDISTILL_LLM_MODEL=<model-name>
-BOOKDISTILL_LLM_BASE_URL=https://api.openai.com/v1
+BOOKDISTILL_LLM_MODEL=deepseek-flash
+BOOKDISTILL_LLM_BASE_URL=https://api.deepseek.com
 BOOKDISTILL_LLM_API_KEY=<secret>
-BOOKDISTILL_LLM_RESPONSE_FORMAT=json_schema
+BOOKDISTILL_LLM_RESPONSE_FORMAT=json_object
 ```
 
 如果厂商只支持 JSON Object 模式，将最后一项设置为 `json_object`。API Key 只从
 环境变量读取，不进入请求日志或领域协议。
+
+检索后的 Evidence 还会经过相关性门槛；低于门槛时生成服务收到空 Evidence 并稳定
+拒答。回答引用必须属于本次 Evidence，且 Evidence 的书、章节、页码和引文必须与
+数据库原 Chunk 一致。模型断言与其引用文本词元重叠不足时，回答降级为拒答。
+
+正式验收步骤、标准答案样例和 0.90/0.85 发布门禁见
+`docs/generation-acceptance.md`。
 
 ## 蒸馏约束
 

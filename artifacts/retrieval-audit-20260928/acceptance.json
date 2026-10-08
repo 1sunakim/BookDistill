@@ -1,0 +1,12 @@
+{
+  "numeric_gates": {
+    "Recall@10": false,
+    "MRR@10": false,
+    "nDCG@10": false,
+    "P95": true,
+    "stage_degradation": true
+  },
+  "human_gold_verified": false,
+  "production_acceptance": false,
+  "reason": "Existing annotations are codex-manual; independent human review is unverified. Numerical failures also block release."
+}

@@ -9,6 +9,12 @@ from .models import (
     ProcessingErrorRecord,
 )
 from .task_models import JobRecord, StageRunRecord
+from .generation_models import (
+    ConversationMessageRecord,
+    ConversationRecord,
+    DistillationArtifactRecord,
+    GenerationRunRecord,
+)
 
 __all__ = [
     "BookRecord",
@@ -19,4 +25,8 @@ __all__ = [
     "ProcessingErrorRecord",
     "JobRecord",
     "StageRunRecord",
+    "ConversationMessageRecord",
+    "ConversationRecord",
+    "DistillationArtifactRecord",
+    "GenerationRunRecord",
 ]

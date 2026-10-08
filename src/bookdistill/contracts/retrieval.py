@@ -6,6 +6,7 @@ contract and intentionally contains no PDF parsing or chunking logic.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -43,6 +44,9 @@ class RetrievalConfig(RetrievalModel):
     final_evidence: int = Field(default=6, ge=1, le=20)
     rrf_k: int = Field(default=60, ge=1, le=1000)
     max_per_chapter: int = Field(default=3, ge=1, le=20)
+    context_window: int = Field(default=1, ge=0, le=3)
+    context_token_budget: int = Field(default=3000, ge=128, le=32000)
+    max_context_tokens_per_evidence: int = Field(default=800, ge=64, le=8000)
 
     @model_validator(mode="after")
     def validate_candidate_sizes(self) -> "RetrievalConfig":
@@ -93,6 +97,9 @@ class Evidence(RetrievalModel):
     rerank_score: float | None = None
     final_rank: int = Field(ge=1)
     retrieval_version: str = Field(min_length=1)
+    context_chunk_ids: list[UUID] = Field(default_factory=list)
+    context_expanded: bool = False
+    estimated_tokens: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def validate_page_range(self) -> "Evidence":
@@ -115,6 +122,22 @@ class RetrievalTrace(RetrievalModel):
     total_latency_ms: float = Field(ge=0)
     rerank_degraded: bool = False
     rerank_applied: bool = False
+    dense_status: Literal["skipped", "hit", "empty", "timeout", "error"] = "skipped"
+    sparse_status: Literal["skipped", "hit", "empty", "timeout", "error"] = "skipped"
+    rerank_status: Literal["skipped", "hit", "empty", "timeout", "error"] = "skipped"
+    dense_hit_count: int = Field(default=0, ge=0)
+    sparse_hit_count: int = Field(default=0, ge=0)
+    rerank_input_count: int = Field(default=0, ge=0)
+    dense_degraded: bool = False
+    sparse_degraded: bool = False
+    dense_timeout_ms: int = Field(default=0, ge=0)
+    sparse_timeout_ms: int = Field(default=0, ge=0)
+    rerank_timeout_ms: int = Field(default=0, ge=0)
+    index_versions: list[str] = Field(default_factory=list)
+    model_names: list[str] = Field(default_factory=list)
+    chunk_versions: list[str] = Field(default_factory=list)
+    index_generated_at: datetime | None = None
+    context_token_count: int = Field(default=0, ge=0)
     candidates: list[CandidateTrace]
 
 
