@@ -1,6 +1,6 @@
 # 图片知识资产与 Obsidian 接入实施方案
 
-状态：待实施；依据 2026-10-08 本地工作区。本文取代旧的 `image-assets-obsidian-plan.md`。
+状态：步骤 1 完成：独立基线、冻结契约与样例已准备；步骤 2–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
 
 ## 1. 本地项目复核结论
 
@@ -30,6 +30,7 @@ BookDistill 仍以 PDF 为 `Book` 输入，原件保存在 `books/{book_id}/orig
 ```text
 POST /api/v1/images                         # 用户单独上传
 GET  /api/v1/books/{book_id}/images         # PDF 中的图片
+GET  /api/v1/images                        # 分页列举独立上传图片
 GET  /api/v1/images/{asset_id}              # 元数据
 GET  /api/v1/images/{asset_id}/content      # 原图字节
 ```
@@ -58,24 +59,58 @@ Markdown YAML 属性记录稳定 BookDistill ID、版本、页序、来源和导
 
 导出服务通过只读接口 `list_images(book_id)`、`open_image(asset_id)` 获取图片，不拼接存储路径。生成产物只按显式 ID 读取并校验所选书籍/引用范围；跨书产物在 Markdown 中保留全部来源，不能悄悄归属单本书。按书自动列举产物要等来源关系与版本选择规则确定后再实现。
 
-## 4. 三模型并行分工
+## 4. 六步实施计划
 
-| 执行者 | 独立工作包 | 文件所有权和交付 |
-|---|---|---|
-| 模型 A：图片资产 | 图片上传、PDF 提取、扫描页失败时保留图片、元数据/文件持久化、图片 API 与迁移 | 新 `image_assets` 模块、文档处理接入、图片协议/表/迁移和后端测试；提供只读 `ImageReader` 接口 |
-| 模型 B：Obsidian 导出 | ZIP、Markdown、附件、manifest、显式产物 ID、路径安全和重复导出测试 | 新 `obsidian_export` 模块及独立 router、格式夹具、导出测试；以 A 的只读接口替身并行开发 |
-| 模型 C：界面与验收 | 前端图片与导出入口、浏览器 Blob 访问、用户文档、真实 PDF 与 ZIP 验收 | `frontend/components/bookdistill/`、`frontend/lib/`、验收脚本与使用说明；以固定 API 响应并行开发 |
+按步骤 1 → 2 → 3 → 4 → 5 → 6 顺序实施。每一步完成其交付物并达到完成条件后，才进入下一步。当前为单执行者顺序实施；模块边界用于组织代码和提交。
 
-开工前由集成负责人冻结 `ImageAsset` JSON 样例、`ImageReader` 方法、端点及 ZIP 格式夹具。A/B 各自实现私有内容端点的鉴权；C 验证未授权访问、浏览器加载和下载。`api/app.py`、`bootstrap.py`、`frontend/app/workspace.tsx` 等组合入口由集成负责人在合并阶段统一接线，不让三个模型同时编辑。LangChain 相关模块、RAG 索引和生成校验不在本轮工作包内。
+| 步骤 | 目标与工作 | 交付物 | 完成条件 |
+|---|---|---|---|
+| 1. 准备基线与冻结契约 | 核对 Git/WIP，建立独立集成 worktree；确定图片元数据、资源引用、只读图片接口、端点、错误响应、鉴权及 ZIP 格式 | 基线记录、接口样例、ZIP 目录样例、变更文件清单 | 基线可追溯；共享契约和兼容策略明确；原工作区成果已登记 |
+| 2. 建立图片资产持久化 | 新建图片资产模块、数据表与迁移；实现安全文件存储、独立图片上传、格式和容量校验、元数据及内容 API | `ImageAsset` 契约、数据库模型/迁移、资产服务和图片路由 | 上传资产重启后可读；非法输入被拒绝；内容鉴权、MIME、ETag 和路径边界有效 |
+| 3. 接入 PDF 图片提取 | 在文本解析前独立提取并保存图片；记录页序、位置和稳定 ID；接入重处理和删书清理；维护类型化资源引用 | PDF 提取器、文档处理接线、资源 Schema 更新 | 多页及重复图片保留出现位置；扫描页文本失败后图片仍可读；重处理 ID 稳定；删书不影响独立上传资产 |
+| 4. 实现 Obsidian 导出 | 从持久化数据读取书籍、章节、图片及显式选择的产物；生成 Markdown、可选 PDF 和 manifest；提供受保护的 ZIP API | `obsidian_export` 模块、导出路由、格式样例 | ZIP 路径安全且稳定；附件及 PDF 页链接有效；无 PDF 时无失效链接；跨书引用完整；导出不调用 LLM |
+| 5. 完成前端操作与说明 | 接入图片列表、预览、下载和 ZIP 导出；支持可选 PDF 与显式产物 ID；用带 Key 的 fetch 获取 Blob 并释放 object URL | 书籍详情界面、API 客户端/类型、用户使用说明 | 用户可从界面完成预览与导出；扫描页失败状态清晰；未授权及下载失败有明确提示 |
+| 6. 完成集成验收与交付 | 验证迁移、后端行为、前端构建、Compose 共享存储和真实 PDF→图片→ZIP→vault 流程；复核 Git 差异并整理交付记录 | 验收记录、已知限制、最终差异和可提交成果 | 第 6 节验收门槛全部满足；原有成果未遗漏；提交仅含功能相关文件；具备进入 PR/合并的条件 |
+
+### 步骤 1 的实施准备
+
+2026-10-09 已完成只读预检查：当前分支为 `main`，HEAD 为 `ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，仅有主工作区一个 worktree，暂存区无改动。本轮修改前，唯一受跟踪的未提交文件为本方案，其本地改动删除了旧的“三模型并行分工”章节；保留该调整。LangChain 适配等代码已存在于当前提交，无需按旧方案重新移植。未发现根目录及仓库内 `AGENTS.md`。
+
+未跟踪内容包括原始 PDF、`artifacts/` 下多批评测结果、`tmp/`、`frontend/tsconfig.tsbuildinfo` 和 `src/bookdistill_contracts.egg-info/`。这些内容不纳入功能基线，现有 `.env` 不读取或复制到交付物。
+
+已定位的实施入口：
+
+| 工作 | 已有入口 / 计划新增位置 |
+|---|---|
+| 图片契约与文档资源 | `src/bookdistill/contracts/document_processing.py`；计划新增图片契约并更新 `schemas/document-processing.snapshot.v1.schema.json` |
+| 数据库与迁移 | `src/bookdistill/db/`、`migrations/versions/`；当前最新迁移文件为 `20260921_0001_generation_persistence.py`，新增迁移前确认迁移 head |
+| 图片存储与 PDF 提取 | 计划新增 `src/bookdistill/image_assets/`；参考 `document_processing/storage.py`，接入 `document_processing/service.py` 与 `parser.py` |
+| API 与鉴权 | `src/bookdistill/api/app.py`、`settings.py`、`bootstrap.py`；新增图片与导出路由，共用敏感内容鉴权依赖 |
+| 已保存生成产物 | `src/bookdistill/generation/repository.py` 的 `get_artifact`；按显式 ID 读取并校验来源 |
+| 导出实现 | 计划新增 `src/bookdistill/obsidian_export/`；只读依赖图片服务和已有持久化数据 |
+| 前端 | `frontend/components/bookdistill/library-reader.tsx`、`frontend/lib/bookdistill-api.ts`、`frontend/lib/bookdistill-contracts.ts`；组合入口为 `frontend/app/workspace.tsx` |
+| 集成验收 | `tests/`、`scripts/` 和 `compose.yml`；API/Worker 当前共享 `app_data` |
+
+以下约定已在 `docs/obsidian-v1-contract.md` 冻结，配套样例位于 `examples/obsidian-v1/contract-examples.json`：
+
+- 图片资产字段以第 3 节为准；页序从 0 开始，独立上传的 `book_id`、`page_index`、`bbox` 为空；PDF 图片 ID 包含出现位置和保存内容哈希。
+- `ImageReader` 提供 `list_images(book_id)` 和 `open_image(asset_id)`；读取不暴露或接受客户端存储路径。
+- 上传大小、解码像素数、单边尺寸默认上限分别为 20 MiB、4000 万像素、16384；均可配置，错误码见冻结契约。
+- 全部新增图片及导出接口统一鉴权；未配置 Key 时所有环境返回 503，Key 缺失或错误返回 401；CORS 预检按原规则。
+- 类型化资源保留 PDF 目录，新 document 写 1.1，读取兼容 1.0/1.1；外层快照及 Book/Chapter/Chunk 维持 1.0；同步 JSON Schema 和前端类型。
+- ZIP 格式以第 3 节为准；显式产物必须与所选书籍来源相交，跨书产物保留全部来源；保存版本按所选 ID 读取。
+- 步骤 3 在文本解析前完成资产持久化，后续文本失败不得回滚已完成的资产保存；提取失败与文本失败应可区分。
+
+步骤 1 已完成，尚未实现运行接口、迁移或真实 vault 验收。独立集成 worktree 为 `E:/计划项目/BookDistill-obsidian-v1`，分支为 `integration/obsidian-v1`。下一项工作为步骤 2：实现图片契约、持久化、上传校验和受保护的图片 API。
 
 ## 5. Git 基线、worktree 与合并
 
-当前 `main` 的最新提交是 `c55a064`；本地仍有大量未提交代码、文档、测试和评测产物，包括 2026-10-08 新增的 LangChain 工作。三个新 worktree 从提交创建，不会携带这些未提交内容。不得对现有工作区批量 `git add .`、`stash -u`、`reset`，也不得让三个模型在同一检出目录写文件。
+以 2026-10-09 核对的 `main@ce9a51d` 为当前准备基线。不得对现有工作区批量 `git add .`、`stash -u`、`reset`。
 
-1. 集成负责人先做 WIP 清单：标明图片/导出开发所依赖的当前代码、迁移和前端改动，以及不应进入基线的临时数据。保留主工作区和索引不动，在独立集成 worktree 从 `main` 建 `integration/obsidian-v1`，只按核对的文件清单移植必要改动并提交；记录基线 SHA 与未移植项。新方案文件也放入该基线。
-2. 从同一基线分别建立 `feature/image-assets`、`feature/obsidian-export`、`feature/obsidian-ui` 三个分支/worktree。每个模型只提交其负责文件、测试结果和接口变更记录。共享契约改变先在集成分支定版，再让三方同步。
-3. 依次合入 A → B → C；B/C 可用契约替身先行开发。跨模块冲突由集成负责人处理并单独提交。完成迁移、后端相关测试、前端构建和真实 PDF→图片→ZIP→Obsidian vault 验收后，再向 `main` 提交 PR/合并。
-4. 合并前再次比较原主工作区与集成分支，确认原有未提交成果没有被覆盖或遗漏。大型评测产物、`tmp/`、密钥文件和生成缓存不进入功能提交。
+1. 保留主工作区和索引，在独立集成 worktree 建立 `integration/obsidian-v1`；移入本方案的已核对版本，记录基线 SHA。开始时重新核对主分支，若有新提交则评估差异后更新基线。
+2. 单执行者按六步顺序开发，在集成分支按步骤提交明确文件清单；共享契约先定版，组合入口随步骤统一接线。无需预先建立三个模型的分支。
+3. 完成迁移、后端检查、前端构建和真实 vault 验收后整理 PR/合并材料。发布或合入 `main` 按届时明确授权执行。
+4. 合并前再次比较原主工作区与集成分支，确认原有成果没有被覆盖或遗漏。大型评测产物、`tmp/`、密钥文件和生成缓存不进入功能提交。
 
 ## 6. 验收门槛与后续
 

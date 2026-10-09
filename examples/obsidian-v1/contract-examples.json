@@ -1,0 +1,86 @@
+{
+  "description": "Frozen illustrative API/format examples. UUIDs and hashes are placeholders, not stored assets or generated ZIP bytes.",
+  "contract_version": "1.0",
+  "pdf_image_view": {
+    "schema_version": "1.0",
+    "asset_id": "11111111-1111-5111-8111-111111111111",
+    "source_type": "pdf",
+    "book_id": "22222222-2222-4222-8222-222222222222",
+    "page_index": 0,
+    "bbox": {"x0": 20.0, "y0": 40.0, "x1": 320.0, "y1": 240.0},
+    "mime_type": "image/png",
+    "width": 600,
+    "height": 400,
+    "size_bytes": 12345,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "ready",
+    "extractor_version": "pdf-images-v1",
+    "created_at": "2026-10-09T00:00:00Z"
+  },
+  "uploaded_image_list": {
+    "items": [{
+      "schema_version": "1.0",
+      "asset_id": "33333333-3333-4333-8333-333333333333",
+      "source_type": "upload",
+      "book_id": null,
+      "page_index": null,
+      "bbox": null,
+      "mime_type": "image/webp",
+      "width": 800,
+      "height": 600,
+      "size_bytes": 23456,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "ready",
+      "extractor_version": "upload-v1",
+      "created_at": "2026-10-09T00:00:00Z"
+    }],
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+  },
+  "typed_resources": [
+    {"type": "pdf_toc", "entries": [{"level": 1, "title": "第一章", "page_index": 0}]},
+    {"type": "image", "asset_id": "11111111-1111-5111-8111-111111111111", "page_index": 0,
+     "bbox": {"x0": 20.0, "y0": 40.0, "x1": 320.0, "y1": 240.0}}
+  ],
+  "authentication_error": {
+    "code": "AUTHENTICATION_REQUIRED",
+    "message": "A valid API key is required.",
+    "trace_id": "example-trace",
+    "details": {}
+  },
+  "unconfigured_key_error": {
+    "code": "CONTENT_KEY_REQUIRED",
+    "message": "Configure BOOKDISTILL_API_KEY before accessing private content.",
+    "trace_id": "example-trace",
+    "details": {}
+  },
+  "export_query": {
+    "book_id": "22222222-2222-4222-8222-222222222222",
+    "include_pdf": false,
+    "artifact_id": ["55555555-5555-4555-8555-555555555555"]
+  },
+  "zip_entries_without_pdf": [
+    "BookDistill/Assets/11111111-1111-5111-8111-111111111111.png",
+    "BookDistill/Books/22222222-2222-4222-8222-222222222222/chapters/44444444-4444-4444-8444-444444444444.md",
+    "BookDistill/Books/22222222-2222-4222-8222-222222222222/index.md",
+    "BookDistill/Notes/55555555-5555-4555-8555-555555555555.md",
+    "BookDistill/manifest.json"
+  ],
+  "manifest_without_pdf": {
+    "format_version": "1.0",
+    "exported_at": "2026-10-09T00:00:00Z",
+    "book_id": "22222222-2222-4222-8222-222222222222",
+    "include_pdf": false,
+    "artifact_ids": ["55555555-5555-4555-8555-555555555555"],
+    "source_book_ids": ["22222222-2222-4222-8222-222222222222", "66666666-6666-4666-8666-666666666666"],
+    "files": [
+      {"path": "BookDistill/Assets/11111111-1111-5111-8111-111111111111.png", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "size_bytes": 12345},
+      {"path": "BookDistill/Books/22222222-2222-4222-8222-222222222222/chapters/44444444-4444-4444-8444-444444444444.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "size_bytes": 1024},
+      {"path": "BookDistill/Books/22222222-2222-4222-8222-222222222222/index.md", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "size_bytes": 512},
+      {"path": "BookDistill/Notes/55555555-5555-4555-8555-555555555555.md", "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "size_bytes": 2048}
+    ]
+  },
+  "chapter_markdown_without_pdf": "---\nbookdistill_format_version: '1.0'\nbookdistill_kind: chapter\nbookdistill_id: '44444444-4444-4444-8444-444444444444'\nsource_book_ids: ['22222222-2222-4222-8222-222222222222']\npage_start: 0\npage_end: 0\nexported_at: '2026-10-09T00:00:00Z'\n---\n\n# 第一章\n\n保存的章节正文。\n\n![[BookDistill/Assets/11111111-1111-5111-8111-111111111111.png]]\n",
+  "pdf_page_link_when_included": "[[BookDistill/Sources/22222222-2222-4222-8222-222222222222.pdf#page=1]]"
+}
