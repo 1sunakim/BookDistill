@@ -22,27 +22,29 @@ export function LibraryView({books,loading,error,onRetry,onOpen,onAsk,onUpload}:
 }
 
 export function BookView({book,onAsk,onConfigureKey}:{book:Book;onAsk:()=>void;onConfigureKey:()=>void}) {
-  const [chapters,setChapters]=useState<Chapter[]>([]);
-  const [chunks,setChunks]=useState<Chunk[]>([]);
+  const [snapshot,setSnapshot]=useState<{identity:string;chapters:Chapter[];chunks:Chunk[];error:string|null}|null>(null);
   const [chapterId,setChapterId]=useState("");
   const [section,setSection]=useState<"text"|"images">(book.status==="failed"?"images":"text");
-  const [error,setError]=useState<string|null>(null);
-  const [loading,setLoading]=useState(true);
+  const identity=`${book.book_id}:${book.updated_at}`;
+  const current=snapshot?.identity===identity?snapshot:null;
+  const chapters=current?.chapters??[];
+  const chunks=current?.chunks??[];
+  const loading=current===null;
+  const error=current?.error??null;
   useEffect(()=>{
-    const controller=new AbortController();setLoading(true);setError(null);setChapters([]);setChunks([]);setChapterId("");
+    const controller=new AbortController();
     Promise.all([bookDistillApi.getChapters(book.book_id,controller.signal),bookDistillApi.getChunks(book.book_id,controller.signal)])
-      .then(([values,blocks])=>{if(!controller.signal.aborted){setChapters(values);setChunks(blocks);setChapterId(values[0]?.chapter_id??"")}})
-      .catch(cause=>{if(!controller.signal.aborted)setError(cause instanceof Error?cause.message:String(cause))})
-      .finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+      .then(([values,blocks])=>{if(!controller.signal.aborted)setSnapshot({identity,chapters:values,chunks:blocks,error:null})})
+      .catch(cause=>{if(!controller.signal.aborted)setSnapshot({identity,chapters:[],chunks:[],error:cause instanceof Error?cause.message:String(cause)})});
     return()=>controller.abort();
-  },[book.book_id,book.updated_at]);
-  const visible=chapterId?chunks.filter(chunk=>chunk.chapter_id===chapterId):chunks;
-  const selected=chapters.find(chapter=>chapter.chapter_id===chapterId);
+  },[book.book_id,identity]);
+  const selected=chapters.find(chapter=>chapter.chapter_id===chapterId)??chapters[0];
+  const visible=selected?chunks.filter(chunk=>chunk.chapter_id===selected.chapter_id):chunks;
   return <div className="min-h-[calc(100vh-72px)] xl:grid xl:grid-cols-[280px_minmax(0,1fr)_270px]">
     <aside className="border-r bg-white p-5">
       <div className="mb-5 flex items-center gap-3"><Cover book={book} className="h-20 w-14"/><div className="min-w-0"><h2 className="line-clamp-2 text-sm font-semibold">{book.title}</h2><p className="mt-1 truncate text-xs text-muted-foreground">{book.authors.join("、")||"作者未识别"}</p></div></div>
       <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">目录 · {chapters.length} 章</p>
-      <div className="space-y-1">{chapters.map(chapter=><button key={chapter.chapter_id} onClick={()=>{setChapterId(chapter.chapter_id);setSection("text")}} className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm ${chapterId===chapter.chapter_id?"bg-secondary text-primary":"hover:bg-muted"}`}><ChevronRight className="mt-0.5 size-4 shrink-0"/><span className="flex-1">{chapter.title}</span><span className="text-xs opacity-60">{chapter.page_start+1}</span></button>)}</div>
+      <div className="space-y-1">{chapters.map(chapter=><button key={chapter.chapter_id} onClick={()=>{setChapterId(chapter.chapter_id);setSection("text")}} className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm ${selected?.chapter_id===chapter.chapter_id?"bg-secondary text-primary":"hover:bg-muted"}`}><ChevronRight className="mt-0.5 size-4 shrink-0"/><span className="flex-1">{chapter.title}</span><span className="text-xs opacity-60">{chapter.page_start+1}</span></button>)}</div>
     </aside>
     <article className="bg-[#fbfbfc] px-5 py-8 sm:px-10 lg:px-14"><div className="mx-auto max-w-3xl">
       <div className="mb-6 flex gap-2" aria-label="书籍内容"><Button variant={section==="text"?"default":"outline"} aria-pressed={section==="text"} onClick={()=>setSection("text")}>章节原文</Button><Button variant={section==="images"?"default":"outline"} aria-pressed={section==="images"} onClick={()=>setSection("images")}>书中图片</Button></div>

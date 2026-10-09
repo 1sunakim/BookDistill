@@ -1,6 +1,6 @@
 # 图片知识资产与 Obsidian 接入实施方案
 
-状态：步骤 1–3 已完成，步骤 4–5 导出及前端代码已完成、运行验收待步骤 6。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
+状态：步骤 1–5 代码已完成；步骤 6 已通过本地回归、构建、浏览器和 ZIP→空 vault 目录检查，PostgreSQL/Compose 及 Obsidian 客户端显示验收待完成。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
 
 ## 1. 本地项目复核结论
 
@@ -153,7 +153,17 @@ Markdown YAML 属性记录稳定 BookDistill ID、版本、页序、来源和导
 - 新增 `docs/obsidian-user-guide.md`，README 已链接说明并区分 PDF 书籍上传和独立图片上传。
 - 本轮仅完成静态代码和 Git 差异审阅，未运行测试、TypeScript 编译、构建或浏览器检查。后端回归、前端构建、真实图片预览/下载及 ZIP→vault 验收在步骤 6 执行，不能据此声明运行验收通过。
 
-下一项工作为步骤 6：集成验收与交付，包含步骤 4–5 待执行的运行检查。
+步骤 5 已提交为 `8000af4`。
+
+### 步骤 6 当前验收记录
+
+- 完整后端检查：164 passed、1 skipped、13 subtests passed；跳过项为 Windows 账号无法创建实际符号链接。
+- 前端完整 TypeScript、涉及文件 ESLint、生产构建通过；修复了请求状态重置和手机错误卡片溢出，并补充图标按钮可访问名称。
+- 真实 315 页 PDF 处理得到 280 章、327 个图片位置（89 页）。含/不含 PDF ZIP 分别为 610/609 个条目，所有文件哈希、解压目标和链接通过检查；重复路径与独立图片重启读取通过。
+- 真实 Chrome 完成 17 项浏览器验收，无页面运行错误；实际下载的 ZIP 又经 manifest、保存产物去重和 vault 链接检查。
+- Docker Desktop 手动暂停阻挡真实 PostgreSQL/Compose 运行验收；基础与独立 override 静态配置已通过，未启动现有或验收容器。Obsidian 客户端内的实际渲染尚未确认。
+- 新增导出专项测试、真实 PDF 与浏览器验收脚本、独立 Compose override，以及 `docs/obsidian-acceptance-report.md`。所有测试数据和输出在忽略目录，原工作区未被覆盖。
+- **步骤 6 尚未全部完成，不宣称已具备全部合并条件。** 恢复 Docker 后继续容器验收，并完成隔离 Obsidian vault 的客户端显示检查。
 
 ## 5. Git 基线、worktree 与合并
 

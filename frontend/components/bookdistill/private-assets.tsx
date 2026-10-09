@@ -60,47 +60,47 @@ function PrivateImage({image,revision,onConfigureKey,large=false}:{image:ImageAs
   const [visible,setVisible]=useState(large);
   const [attempt,setAttempt]=useState(0);
   const [content,setContent]=useState<{identity:string;url:string}|null>(null);
-  const [error,setError]=useState<string|null>(null);
+  const [failure,setFailure]=useState<{identity:string;message:string}|null>(null);
   const identity=`${image.asset_id}:${revision}:${attempt}`;
   useEffect(()=>{
     const element=container.current;
     if(large||!element)return;
-    if(typeof IntersectionObserver==="undefined"){setVisible(true);return}
+    if(typeof IntersectionObserver==="undefined"){const frame=window.requestAnimationFrame(()=>setVisible(true));return()=>window.cancelAnimationFrame(frame)}
     const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect()}},{rootMargin:"200px"});
     observer.observe(element);return()=>observer.disconnect();
   },[large,image.asset_id]);
   useEffect(()=>{
     if(!visible)return;
     const controller=new AbortController();let objectUrl:string|null=null;
-    setError(null);
     bookDistillApi.imageContent(image.asset_id,controller.signal).then(blob=>{
       if(controller.signal.aborted)return;
       objectUrl=URL.createObjectURL(blob);setContent({identity,url:objectUrl});
-    }).catch(cause=>{if(!controller.signal.aborted)setError(privateContentError(cause))});
+    }).catch(cause=>{if(!controller.signal.aborted)setFailure({identity,message:privateContentError(cause)})});
     return()=>{controller.abort();if(objectUrl)URL.revokeObjectURL(objectUrl)};
   },[visible,identity,image.asset_id]);
   const url=content?.identity===identity?content.url:null;
+  const error=failure?.identity===identity?failure.message:null;
   return <div ref={container} className={`grid place-items-center overflow-hidden rounded-xl bg-muted/40 ${large?"min-h-56":"h-40"}`}>
     {error?<div role="alert" className="space-y-2 p-3 text-center text-xs text-rose-700"><p>{error}</p><Button size="sm" variant="outline" onClick={()=>setAttempt(value=>value+1)}>重试图片</Button><AccessHelp onConfigureKey={onConfigureKey}/></div>:url?
       // Authenticated content is a local Blob URL, so the native image element owns its lifecycle.
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt={image.source_type==="pdf"?`PDF 第 ${image.page_index+1} 页的图片`:`上传图片 ${image.asset_id}`} className={large?"max-h-[60vh] max-w-full object-contain":"h-full w-full object-contain"} onError={()=>setError("图片无法显示，请重试或下载原图查看。")}/>
+      <img src={url} alt={image.source_type==="pdf"?`PDF 第 ${image.page_index+1} 页的图片`:`上传图片 ${image.asset_id}`} className={large?"max-h-[60vh] max-w-full object-contain":"h-full w-full object-contain"} onError={()=>setFailure({identity,message:"图片无法显示，请重试或下载原图查看。"})}/>
       :<span className="p-3 text-xs text-muted-foreground">{visible?"正在读取图片…":"图片待加载"}</span>}
   </div>;
 }
 
 function ImageGallery({images,revision,onConfigureKey}:{images:ImageAssetView[];revision:number;onConfigureKey:()=>void}){
-  const [selected,setSelected]=useState<ImageAssetView|null>(null);
-  useEffect(()=>setSelected(null),[revision,images]);
+  const [selection,setSelection]=useState<{id:string;revision:number}|null>(null);
+  const selected=selection?.revision===revision?images.find(image=>image.asset_id===selection.id)??null:null;
   return <>
     <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{images.map(image=><section key={image.asset_id} className="rounded-2xl border bg-white p-3">
       <PrivateImage image={image} revision={revision} onConfigureKey={onConfigureKey}/>
       <p className="mt-3 text-sm font-medium">{image.source_type==="pdf"?`PDF 第 ${image.page_index+1} 页`:"独立上传图片"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{image.width} × {image.height} · {(image.size_bytes/1024).toFixed(1)} KB</p>
       <p className="mt-1 break-all text-[11px] text-muted-foreground">{image.asset_id}</p>
-      <Button variant="outline" size="sm" className="mt-3 w-full" onClick={()=>setSelected(image)}>预览与下载</Button>
+      <Button variant="outline" size="sm" className="mt-3 w-full" onClick={()=>setSelection({id:image.asset_id,revision})}>预览与下载</Button>
     </section>)}</div>
-    <Dialog open={!!selected} onOpenChange={open=>!open&&setSelected(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+    <Dialog open={!!selected} onOpenChange={open=>!open&&setSelection(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
       <DialogHeader><DialogTitle>图片预览</DialogTitle><DialogDescription>{selected?`${selected.width} × ${selected.height} · ${selected.mime_type}`:""}</DialogDescription></DialogHeader>
       {selected&&<ImagePreview key={`${selected.asset_id}:${revision}`} image={selected} revision={revision} onConfigureKey={onConfigureKey}/>}
     </DialogContent></Dialog>
@@ -122,21 +122,24 @@ function Pagination({offset,total,onChange,disabled=false}:{offset:number;total:
 }
 
 export function BookImages({book,onConfigureKey}:{book:Book;onConfigureKey:()=>void}){
-  const [images,setImages]=useState<ImageAssetView[]>([]);
+  const [snapshot,setSnapshot]=useState<{identity:string;images:ImageAssetView[];error:string|null}|null>(null);
   const [offset,setOffset]=useState(0);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState<string|null>(null);
   const [revision,refresh]=usePrivateRevision();
+  const identity=`${book.book_id}:${book.updated_at}:${revision}`;
+  const current=snapshot?.identity===identity?snapshot:null;
+  const images=current?.images??[];
+  const error=current?.error??null;
+  const loading=current===null;
+  const pageOffset=offset<images.length?offset:0;
   useEffect(()=>{
-    const controller=new AbortController();setLoading(true);setError(null);
-    bookDistillApi.getBookImages(book.book_id,controller.signal).then(values=>{if(!controller.signal.aborted){setImages(values);setOffset(0)}})
-      .catch(cause=>{if(!controller.signal.aborted){setImages([]);setError(privateContentError(cause))}})
-      .finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+    const controller=new AbortController();
+    bookDistillApi.getBookImages(book.book_id,controller.signal).then(values=>{if(!controller.signal.aborted){setSnapshot({identity,images:values,error:null});setOffset(0)}})
+      .catch(cause=>{if(!controller.signal.aborted)setSnapshot({identity,images:[],error:privateContentError(cause)})});
     return()=>controller.abort();
-  },[book.book_id,book.updated_at,revision]);
+  },[book.book_id,identity]);
   return <section className="mt-8 border-t pt-6"><div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-semibold">书中图片</h3><Button size="sm" variant="outline" onClick={refresh} disabled={loading}><RefreshCw className="size-4"/>刷新</Button></div>
     {book.status==="failed"&&<p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">本书文本处理失败。扫描页暂不支持文本识别；处理失败的具体原因请在系统状态中查看。已提取并保存的图片仍可预览和下载。</p>}
-    {loading?<LoadingState label="正在读取图片清单"/>:error?<div className="space-y-3"><ErrorPanel message={error} onRetry={refresh}/><AccessHelp onConfigureKey={onConfigureKey}/></div>:images.length?<><ImageGallery images={images.slice(offset,offset+PAGE_SIZE)} revision={revision} onConfigureKey={onConfigureKey}/><Pagination offset={offset} total={images.length} onChange={setOffset}/></>:<EmptyState title="暂无已保存图片" description="处理完成后会显示 PDF 中的嵌入位图。纯文字或矢量图页面可能没有图片。"/>}
+    {loading?<LoadingState label="正在读取图片清单"/>:error?<div className="space-y-3"><ErrorPanel message={error} onRetry={refresh}/><AccessHelp onConfigureKey={onConfigureKey}/></div>:images.length?<><ImageGallery images={images.slice(pageOffset,pageOffset+PAGE_SIZE)} revision={revision} onConfigureKey={onConfigureKey}/><Pagination offset={pageOffset} total={images.length} onChange={setOffset}/></>:<EmptyState title="暂无已保存图片" description="处理完成后会显示 PDF 中的嵌入位图。纯文字或矢量图页面可能没有图片。"/>}
   </section>;
 }
 
@@ -164,15 +167,18 @@ export function ObsidianExportPanel({book,onConfigureKey}:{book:Book;onConfigure
 }
 
 export function UploadedImagesView({onConfigureKey}:{onConfigureKey:()=>void}){
-  const [listing,setListing]=useState<ImageAssetList>({items:[],total:0,limit:PAGE_SIZE,offset:0});
+  const [snapshot,setSnapshot]=useState<{identity:string;listing:ImageAssetList;error:string|null}|null>(null);
   const [offset,setOffset]=useState(0);
   const [file,setFile]=useState<File|null>(null);
   const [uploading,setUploading]=useState(false);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState<string|null>(null);
   const [uploadError,setUploadError]=useState<string|null>(null);
   const [uploadedId,setUploadedId]=useState<string|null>(null);
   const [revision,refresh]=usePrivateRevision();
+  const identity=`${offset}:${revision}`;
+  const current=snapshot?.identity===identity?snapshot:null;
+  const listing=current?.listing??{items:[],total:0,limit:PAGE_SIZE,offset};
+  const loading=current===null;
+  const error=current?.error??null;
   const uploadRequest=useRef<AbortController|null>(null);
   const input=useRef<HTMLInputElement>(null);
   useEffect(()=>{
@@ -181,15 +187,14 @@ export function UploadedImagesView({onConfigureKey}:{onConfigureKey:()=>void}){
     return()=>{uploadRequest.current?.abort();uploadRequest.current=null;window.removeEventListener(CONNECTION_CHANGE_EVENT,changed)};
   },[]);
   useEffect(()=>{
-    const controller=new AbortController();setLoading(true);setError(null);
+    const controller=new AbortController();
     bookDistillApi.listUploadedImages(PAGE_SIZE,offset,controller.signal).then(values=>{
       if(controller.signal.aborted)return;
       if(offset>0&&offset>=values.total){setOffset(Math.max(0,Math.floor((values.total-1)/PAGE_SIZE)*PAGE_SIZE));return}
-      setListing(values);
-    }).catch(cause=>{if(!controller.signal.aborted){setListing({items:[],total:0,limit:PAGE_SIZE,offset});setError(privateContentError(cause))}})
-      .finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+      setSnapshot({identity,listing:values,error:null});
+    }).catch(cause=>{if(!controller.signal.aborted)setSnapshot({identity,listing:{items:[],total:0,limit:PAGE_SIZE,offset},error:privateContentError(cause)})});
     return()=>controller.abort();
-  },[offset,revision]);
+  },[offset,identity]);
   const upload=async()=>{
     if(!file||uploadRequest.current)return;
     const controller=new AbortController();uploadRequest.current=controller;setUploading(true);setUploadError(null);setUploadedId(null);

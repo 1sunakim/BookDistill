@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian v1 冻结契约
 
-状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–5 代码已实现，步骤 4–5 运行验收待步骤 6。
+状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–5 代码已实现，本地后端/前端/浏览器及导出文件验收通过，PostgreSQL/Compose 和 Obsidian 客户端显示验收待完成。
 依据：`main@ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，实施分支 `integration/obsidian-v1`。
 配套请求/响应样例：`examples/obsidian-v1/contract-examples.json`。本文约定新增行为；现有问答、蒸馏和检索契约维持其版本。
 

@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian 使用指南
 
-当前后端及前端代码已接入，尚未完成步骤 6 的运行验收。
+当前后端及前端代码已接入，本地回归、构建、浏览器与导出文件检查已通过；PostgreSQL/Compose 和 Obsidian 客户端显示检查仍待完成。详见 [验收记录](obsidian-acceptance-report.md)。
 
 ## 1. 连接后端
 

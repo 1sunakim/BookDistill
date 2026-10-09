@@ -2,7 +2,7 @@
 
 当前实现了文本型 PDF 的结构化入库闭环：流式上传、文件校验、SHA-256 去重、本地原始文件存储、任务状态、PyMuPDF 页面解析、页眉页脚检测、文本清洗、书签/标题识别、章节树、章节感知 Chunk、结构化错误和中间产物持久化。
 
-图片资产与 Obsidian 导出已接入后端及前端，运行验收待完成。书籍详情支持 PDF 图片预览、下载及 ZIP 导出；侧栏“图片资产”支持独立图片上传。操作说明见 [图片与 Obsidian 使用指南](docs/obsidian-user-guide.md)。
+图片资产与 Obsidian 导出已接入后端及前端，本地回归、构建、浏览器和导出文件检查已通过，容器与 Obsidian 客户端显示验收待完成。书籍详情支持 PDF 图片预览、下载及 ZIP 导出；侧栏“图片资产”支持独立图片上传。操作说明见 [图片与 Obsidian 使用指南](docs/obsidian-user-guide.md)，验证范围见 [验收记录](docs/obsidian-acceptance-report.md)。
 
 ## 本地运行
 

@@ -1,0 +1,105 @@
+/** Browser acceptance against an isolated API with synthetic fixture books. */
+import assert from "node:assert/strict";
+import {mkdir,writeFile} from "node:fs/promises";
+import {resolve} from "node:path";
+import {pathToFileURL} from "node:url";
+
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH
+  ?pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH)).href:"playwright");
+const frontend=process.env.ACCEPTANCE_FRONTEND??"http://localhost:5176";
+const api=process.env.ACCEPTANCE_API??"http://127.0.0.1:8016";
+const directory=resolve(process.env.ACCEPTANCE_OUTPUT??".runtime-check/ui/browser");
+await mkdir(directory,{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:process.env.ACCEPTANCE_CHROME});
+const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});
+await context.addInitScript(api=>{
+  localStorage.setItem("bookdistill.apiBase",api);
+  window.__activeBlobUrls=new Set();
+  const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);
+  URL.createObjectURL=value=>{const url=create(value);window.__activeBlobUrls.add(url);return url};
+  URL.revokeObjectURL=url=>{window.__activeBlobUrls.delete(url);return revoke(url)};
+},api);
+const page=await context.newPage();
+const failures=[],checks=[];
+page.on("pageerror",error=>failures.push(error.message));
+const privateRequests=[];
+page.on("request",request=>{
+  if(request.url().startsWith(api)&&/\/images|\/exports/.test(request.url()))privateRequests.push({url:request.url(),key:request.headers()["x-bookdistill-api-key"]??null});
+});
+const check=(name)=>checks.push(name);
+const connect=async()=>{
+  await page.getByRole("button",{name:"配置 Key 与模型",exact:true}).click();
+  await page.locator("#manual-api-key").fill("isolated-acceptance-key");
+  await page.getByRole("button",{name:"仅连接后端",exact:true}).click();
+  await page.getByRole("button",{name:"清除后端 Key",exact:true}).waitFor();
+  await page.getByRole("button",{name:"取消",exact:true}).click();
+  await page.getByRole("dialog").waitFor({state:"hidden"});
+};
+try{
+  await page.goto(frontend,{waitUntil:"networkidle"});
+  await page.getByRole("button",{name:"图片资产",exact:true}).click();
+  await page.getByText(/访问 Key 缺失或不正确/).waitFor();check("anonymous image list rejected with actionable message");
+  await connect();
+  await page.getByRole("button",{name:"预览与下载",exact:true}).first().waitFor();
+  await page.getByRole("button",{name:"预览与下载",exact:true}).first().click();
+  const dialog=page.getByRole("dialog");
+  await dialog.locator("img").waitFor();
+  await page.waitForFunction(()=>{const image=document.querySelector('[role="dialog"] img');return image?.complete&&image.naturalWidth>0});
+  const previewUrl=await dialog.locator("img").getAttribute("src");assert(previewUrl.startsWith("blob:"));
+  await page.screenshot({path:resolve(directory,"image-preview.png"),fullPage:true,animations:"disabled"});check("authenticated image rendered from Blob");
+  const imageDownload=page.waitForEvent("download");await dialog.getByRole("button",{name:"下载原图",exact:true}).click();
+  await (await imageDownload).saveAs(resolve(directory,"image.png"));check("original image download");
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({state:"hidden"});
+  await page.waitForFunction(url=>!window.__activeBlobUrls.has(url),previewUrl);check("closing preview releases its Blob URL");
+  await page.getByLabel("选择要上传的图片").setInputFiles(resolve(".runtime-check/ui/upload.png"));
+  await page.getByRole("button",{name:"上传并保存",exact:true}).click();
+  await page.getByText(/已保存图片：/).waitFor();check("independent upload and list refresh");
+  await page.getByLabel("选择要上传的图片").setInputFiles(resolve(".runtime-check/ui/invalid.png"));
+  await page.getByRole("button",{name:"上传并保存",exact:true}).click();
+  await page.getByText(/图片损坏或属于多帧/).waitFor();check("invalid image error displayed");
+  await page.getByRole("button",{name:"书籍库",exact:true}).click();
+  await page.getByRole("article").filter({has:page.getByRole("heading",{name:"图片导出验收书",exact:true})}).getByRole("button",{name:"打开书籍",exact:true}).first().click();
+  await page.getByRole("button",{name:"书中图片",exact:true}).click();
+  await page.getByRole("button",{name:"预览与下载",exact:true}).first().waitFor();check("PDF images visible independently of text");
+  await page.getByLabel("保存产物 ID（可选）").fill("not-a-uuid");
+  await page.getByRole("button",{name:"下载 Obsidian ZIP",exact:true}).click();
+  await page.getByText(/产物 ID 应为完整 UUID/).waitFor();check("invalid artifact UUID blocked before request");
+  await page.getByLabel("保存产物 ID（可选）").fill("");
+  const download=page.waitForEvent("download");await page.getByRole("button",{name:"下载 Obsidian ZIP",exact:true}).click();
+  const zip=await download;assert(zip.suggestedFilename().endsWith(".zip"));await zip.saveAs(resolve(directory,"book.zip"));check("Obsidian ZIP download");
+  await page.getByRole("button",{name:"蒸馏",exact:true}).click();
+  await page.getByLabel("检索意图").fill("searchable text evidence");
+  await page.getByRole("button",{name:"生成蒸馏产物",exact:true}).click();
+  await page.locator("#saved-artifact-id").waitFor();
+  const artifactId=await page.locator("#saved-artifact-id").inputValue();assert(/^[0-9a-f-]{36}$/i.test(artifactId));check("saved generation artifact ID displayed");
+  await page.getByRole("button",{name:"书籍库",exact:true}).click();
+  await page.getByRole("article").filter({has:page.getByRole("heading",{name:"图片导出验收书",exact:true})}).getByRole("button",{name:"打开书籍",exact:true}).first().click();
+  await page.getByLabel("保存产物 ID（可选）").fill(`${artifactId}\n${artifactId}`);
+  await page.getByLabel("包含原 PDF 与页链接").check();
+  const savedDownload=page.waitForEvent("download");await page.getByRole("button",{name:"下载 Obsidian ZIP",exact:true}).click();
+  await (await savedDownload).saveAs(resolve(directory,"book-with-artifact-pdf.zip"));check("explicit saved artifact and optional PDF download");
+  await page.getByRole("button",{name:"书籍库",exact:true}).click();
+  await page.getByRole("article").filter({has:page.getByRole("heading",{name:"扫描页验收书",exact:true})}).getByRole("button",{name:"打开书籍",exact:true}).first().click();
+  await page.getByText(/本书文本处理失败/).waitFor();await page.getByRole("button",{name:"预览与下载",exact:true}).waitFor();check("scanned text failure retains image access");
+  await page.getByRole("button",{name:"下载 Obsidian ZIP",exact:true}).click();
+  await page.getByText(/书籍尚无可导出的文本和章节/).waitFor();check("text not ready export error displayed");
+  await page.getByRole("button",{name:"图片资产",exact:true}).click();
+  await page.getByRole("button",{name:"配置 Key 与模型",exact:true}).click();
+  await page.getByRole("button",{name:"清除后端 Key",exact:true}).click();
+  await page.getByRole("button",{name:"取消",exact:true}).click();
+  await page.getByRole("dialog").waitFor({state:"hidden"});
+  await page.getByText(/访问 Key 缺失或不正确/).waitFor();
+  await page.waitForFunction(()=>window.__activeBlobUrls.size===0);check("clearing Key cancels private content and releases URLs");
+  assert(privateRequests.some(request=>request.key==="isolated-acceptance-key"));
+  assert(privateRequests.every(request=>!request.url.includes("isolated-acceptance-key")));check("Key sent in headers and absent from URLs");
+  assert.deepEqual(failures,[]);
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));check("mobile error message has no horizontal overflow");
+  await page.getByRole("button",{name:"打开菜单",exact:true}).click();
+  // The left part of the full-screen backdrop is covered by the navigation drawer.
+  await page.getByRole("button",{name:"关闭菜单",exact:true}).click({position:{x:370,y:400}});check("mobile navigation controls accessible");
+  await page.screenshot({path:resolve(directory,"mobile.png"),fullPage:true,animations:"disabled"});
+  const report={checks,artifactId,pageErrors:failures,privateRequestCount:privateRequests.length};
+  await writeFile(resolve(directory,"report.json"),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+}finally{await browser.close()}
