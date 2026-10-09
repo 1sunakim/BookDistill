@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian v1 冻结契约
 
-状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2 图片持久化/API 已实现，步骤 3–5 待实现。
+状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–3 图片持久化/API、PDF 提取与资源兼容已实现，步骤 4–5 待实现。
 依据：`main@ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，实施分支 `integration/obsidian-v1`。
 配套请求/响应样例：`examples/obsidian-v1/contract-examples.json`。本文约定新增行为；现有问答、蒸馏和检索契约维持其版本。
 
@@ -71,11 +71,11 @@ class ImageReader(Protocol):
     def open_image(self, asset_id: UUID) -> ContextManager[BinaryIO]: ...
 ```
 
-`open_image` 查询内部元数据并验证实际 resolved 路径位于资产根目录，拒绝符号链接逃逸；调用方用 `with` 管理流。HTTP 路由负责鉴权，导出器不拼存储路径、不访问私有 storage_key。
+`open_image` 查询内部元数据并验证实际 resolved 路径位于资产根目录；资产目录及其内部条目不允许链接重定向，以防读写或清理进入其他资产所有者目录。配置的 storage_root 本身先 resolve，仍可指向用户选择的真实存储根目录。调用方用 `with` 管理流。HTTP 路由负责鉴权，导出器不拼存储路径、不访问私有 storage_key。
 
 处理顺序为 PDF 校验 → 图片提取与独立提交 → 文本解析 → 结构化/分块/索引。图片事务不附着文本事务；文本解析失败保留已提交图片，并维持现有书籍文本失败状态及 `SCANNED_PAGE_UNSUPPORTED`。图片提取失败为独立错误 `PDF_IMAGE_EXTRACTION_FAILED` 或 `PDF_IMAGE_LIMIT_EXCEEDED`，不得冒充文本失败。
 
-重处理先完整生成并验证新文件与清单，再在数据库事务中替换该书元数据；失败保留旧清单。替换提交后清理旧清单孤儿文件，清理失败可重试。同书重处理/删除需串行化或加锁。删除仅清理该 book_id 所有的 PDF 资产；不按 SHA 删除他书或上传资产。
+重处理先完整生成并验证新文件与清单，再在数据库事务中替换该书元数据；失败保留旧清单。替换提交后清理旧清单孤儿文件，清理失败在后续提取时重试。同书重处理/删除用 FileLock 跨进程锁串行化。删除仅清理该 book_id 所有的 PDF 资产；不按 SHA 删除他书或上传资产。元数据已经删除后，重复删除仍尝试文件清理并保留原有的书籍不存在 404 响应。
 
 ## 4. 文档资源与兼容策略
 

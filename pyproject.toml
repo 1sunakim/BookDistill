@@ -7,6 +7,7 @@ dependencies = [
     "alembic>=1.16,<2",
     "celery[redis]>=5.5,<6",
     "fastapi>=0.116,<1",
+    "filelock>=4,<5",
     "pydantic>=2.12,<3",
     "Pillow>=11.3,<12",
     "pymupdf>=1.26,<2",

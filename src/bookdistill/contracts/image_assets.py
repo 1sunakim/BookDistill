@@ -8,20 +8,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, field_validator, model_validator
 
-from .document_processing import StrictModel
-
-
-class ImageBoundingBox(StrictModel):
-    x0: float = Field(allow_inf_nan=False)
-    y0: float = Field(allow_inf_nan=False)
-    x1: float = Field(allow_inf_nan=False)
-    y1: float = Field(allow_inf_nan=False)
-
-    @model_validator(mode="after")
-    def validate_area(self) -> "ImageBoundingBox":
-        if self.x1 <= self.x0 or self.y1 <= self.y0:
-            raise ValueError("image bounding box must have positive area")
-        return self
+from .document_processing import ImageBoundingBox, StrictModel
 
 
 class ImageAssetView(StrictModel):

@@ -36,11 +36,13 @@ class ImageStorage:
         except ValueError as error:
             raise ImageAssetError("IMAGE_STORAGE_ERROR", "Asset path failed validation.") from error
         target = (self.root / storage_key).resolve()
-        if not target.is_relative_to(self.assets_root) or target == self.assets_root:
+        if (not target.is_relative_to(self.assets_root) or target == self.assets_root
+                or target != self.root / storage_key):
             raise ImageAssetError("IMAGE_STORAGE_ERROR", "Asset path failed boundary validation.")
         return target
 
-    def stage(self, source: BinaryIO) -> StagedImage:
+    def stage(self, source: BinaryIO, *, maximum_bytes: int | None = None) -> StagedImage:
+        max_bytes = self.max_bytes if maximum_bytes is None else maximum_bytes
         staging_root = self.checked_path("assets/.staging")
         descriptor, name = tempfile.mkstemp(dir=staging_root, suffix=".image")
         path = Path(name)
@@ -48,9 +50,9 @@ class ImageStorage:
         digest = hashlib.sha256()
         try:
             with os.fdopen(descriptor, "wb") as output:
-                while chunk := source.read(min(1024 * 1024, self.max_bytes - total + 1)):
+                while chunk := source.read(min(1024 * 1024, max_bytes - total + 1)):
                     total += len(chunk)
-                    if total > self.max_bytes:
+                    if total > max_bytes:
                         raise ImageAssetError("IMAGE_TOO_LARGE", "Image upload exceeds the byte limit.", 413)
                     output.write(chunk)
                     digest.update(chunk)

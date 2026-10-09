@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 from datetime import UTC, datetime
 import json
 from pathlib import Path
@@ -21,6 +22,7 @@ from bookdistill.contracts import (
     ErrorDetail,
     JobStatus,
     ParsedDocument,
+    ImageResource,
     ParsingJob,
     ProcessingStage,
 )
@@ -31,7 +33,10 @@ from bookdistill.db import (
     ParsedDocumentRecord,
     ParsingJobRecord,
     ProcessingErrorRecord,
+    ImageAssetRecord,
 )
+from bookdistill.image_assets import ImageAssetService
+from bookdistill.image_assets.errors import ImageAssetError
 
 from .cleaning import DocumentCleaner
 from .chunking import ChapterAwareChunker
@@ -59,6 +64,7 @@ class IngestionService:
         cleaner: DocumentCleaner,
         structurer: ChapterStructurer,
         chunker: ChapterAwareChunker,
+        images: ImageAssetService | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.storage = storage
@@ -67,6 +73,32 @@ class IngestionService:
         self.cleaner = cleaner
         self.structurer = structurer
         self.chunker = chunker
+        self.images = images
+
+    def _parse_with_images(self, source_path: Path, book_id: UUID) -> ParsedDocument:
+        with self.images.book_lock(book_id) if self.images else nullcontext():
+            image_views = []
+            if self.images:
+                try:
+                    image_views = self.images.replace_pdf_images(source_path, book_id)
+                except ImageAssetError as error:
+                    raise DocumentProcessingError(
+                        code=error.code if error.code.startswith("PDF_IMAGE_") else "PDF_IMAGE_EXTRACTION_FAILED",
+                        message="PDF image extraction did not complete.",
+                        category=ErrorCategory.STORAGE if error.status_code >= 500 else ErrorCategory.PARSING,
+                        stage=ProcessingStage.PARSE, retryable=error.status_code >= 500,
+                        page_index=getattr(error, "page_index", None),
+                        details={"component": "image_extraction", "asset_error_code": error.code},
+                        http_status=error.status_code,
+                    ) from error
+            # Asset transactions have committed before text parsing starts.
+            document = self.parser.parse(source_path, book_id)
+            document.resources = [*document.resources, *[
+                ImageResource(asset_id=image.asset_id, page_index=image.page_index, bbox=image.bbox)
+                for image in image_views
+            ]]
+            self.storage.write_json_artifact(book_id, "parsed_document.raw.v1.json", document.model_dump(mode="json"))
+            return document
 
     def ingest(
         self,
@@ -195,12 +227,7 @@ class IngestionService:
 
         active_stage = ProcessingStage.PARSE
         try:
-            document = self.parser.parse(source_path, book_id)
-            self.storage.write_json_artifact(
-                book_id,
-                "parsed_document.raw.v1.json",
-                document.model_dump(mode="json"),
-            )
+            document = self._parse_with_images(source_path, book_id)
             self._advance_job(
                 job_id,
                 stage=ProcessingStage.CLEAN,
@@ -551,10 +578,20 @@ class IngestionService:
             return {}
 
     def delete_book(self, book_id: UUID) -> bool:
+        with self.images.book_lock(book_id) if self.images else nullcontext():
+            deleted = self._delete_book_records(book_id)
+            # Retrying after a committed deletion can still finish orphan cleanup.
+            self.storage.delete_book(book_id)
+            if self.images:
+                self.images.cleanup_book_files(book_id, set())
+            return deleted
+
+    def _delete_book_records(self, book_id: UUID) -> bool:
         with self.session_factory.begin() as session:
             book = session.get(BookRecord, str(book_id))
             if book is None:
                 return False
+            session.execute(delete(ImageAssetRecord).where(ImageAssetRecord.book_id == str(book_id)))
             job_ids = session.scalars(
                 select(ParsingJobRecord.id).where(
                     ParsingJobRecord.book_id == str(book_id)
@@ -579,7 +616,6 @@ class IngestionService:
                 )
             )
             session.delete(book)
-        self.storage.delete_book(book_id)
         return True
 
     # Durable stage boundaries used by the generic task system.  Each method
@@ -630,10 +666,8 @@ class IngestionService:
                     category=ErrorCategory.STORAGE, stage=ProcessingStage.PARSE,
                 )
             source_path = Path(book.storage_uri)
-        document = self.parser.parse(source_path, book_id)
-        artifact = self.storage.write_json_artifact(
-            book_id, "parsed_document.raw.v1.json", document.model_dump(mode="json")
-        )
+        document = self._parse_with_images(source_path, book_id)
+        artifact = self.storage.book_root(book_id) / "parsed_document.raw.v1.json"
         self._advance_job(
             job_id, stage=ProcessingStage.CLEAN, progress=35,
             completed=["validate", "classify", "parse"],

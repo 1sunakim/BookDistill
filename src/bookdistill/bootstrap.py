@@ -30,6 +30,7 @@ from bookdistill.task_system.repository import JobRepository
 from bookdistill.retrieval import HybridRetrievalEngine, build_retrieval_engine
 from bookdistill.generation.repository import GenerationRepository
 from bookdistill.model_config import ModelConfigStore
+from bookdistill.image_assets import ImageAssetService
 
 
 @dataclass(slots=True)
@@ -43,6 +44,7 @@ class Runtime:
     distillation: DistillationService | None
     documents: IngestionService
     retrieval: HybridRetrievalEngine
+    images: ImageAssetService
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
@@ -52,7 +54,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     sessions = create_session_factory(engine)
     registry = JobRegistry()
     registry.register(DemoJobHandler())
-    documents = build_document_service(settings, sessions)
+    images = ImageAssetService(settings, sessions)
+    documents = build_document_service(settings, sessions, images)
     retrieval = build_retrieval_engine(settings)
 
     def index_book(book_id):
@@ -109,4 +112,5 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         distillation,
         documents,
         retrieval,
+        images,
     )

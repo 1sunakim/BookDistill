@@ -7,6 +7,25 @@ export interface Book {
   created_at:string; updated_at:string;
 }
 
+export type ImageBoundingBox = {x0:number;y0:number;x1:number;y1:number};
+export type DocumentResource =
+  | {type:"pdf_toc";entries:{level:number;title:string;page_index:number}[]}
+  | {type:"image";asset_id:string;page_index:number;bbox:ImageBoundingBox};
+export interface ParsedTextBlock {
+  schema_version:"1.0";block_id:string;page_index:number;block_index:number;reading_order:number;
+  content_type:string;raw_text:string;text:string;bbox:ImageBoundingBox;
+  style:{font_name:string|null;font_size:number|null;bold:boolean|null;italic:boolean|null}|null;
+  source:"text_layer"|"ocr";confidence:number|null;
+}
+export interface ParsedPage {
+  schema_version:"1.0";page_index:number;printed_page_number:string|null;width:number;height:number;
+  rotation:0|90|180|270;page_type:"text"|"scanned"|"mixed";ocr_used:boolean;quality_flags:string[];
+  blocks:ParsedTextBlock[];
+}
+export interface ParsedDocument {
+  schema_version:"1.0"|"1.1";document_id:string;book_id:string;parser_name:string;parser_version:string;
+  parse_config_sha256:string;pages:ParsedPage[];resources:DocumentResource[];created_at:string;
+}
 export interface Chapter { schema_version:"1.0"; chapter_id:string; book_id:string; parent_id:string|null; title:string; normalized_title:string; level:number; order_index:number; page_start:number; page_end:number; source_block_id:string; confidence:number; manually_verified:boolean; }
 export interface Chunk { schema_version:"1.0"; chunk_id:string; book_id:string; chapter_id:string; chapter_path:string[]; text:string; raw_text:string; page_start:number; page_end:number; source_block_ids:string[]; previous_chunk_id:string|null; next_chunk_id:string|null; token_count:number; content_type:string; chunk_version:string; checksum:string; }
 

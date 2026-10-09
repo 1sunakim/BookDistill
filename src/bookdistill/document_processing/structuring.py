@@ -8,7 +8,7 @@ from statistics import median
 import re
 from uuid import UUID, uuid5
 
-from bookdistill.contracts import Chapter, ContentType, ParsedDocument, TextBlock
+from bookdistill.contracts import Chapter, ContentType, ParsedDocument, PdfTocResource, TextBlock
 
 
 CHAPTER_NAMESPACE = UUID("b7569475-046d-4e04-a95f-b8fbb98d8625")
@@ -181,8 +181,8 @@ class ChapterStructurer:
     @staticmethod
     def _toc_entries(document: ParsedDocument) -> list[dict]:
         for resource in document.resources:
-            if resource.get("type") == "pdf_toc":
-                return list(resource.get("entries", []))
+            if isinstance(resource, PdfTocResource):
+                return [entry.model_dump() for entry in resource.entries]
         return []
 
     def _match_toc_entry(

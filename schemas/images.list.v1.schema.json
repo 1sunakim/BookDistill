@@ -121,6 +121,7 @@
     },
     "ImageBoundingBox": {
       "additionalProperties": false,
+      "description": "Image rectangles may extend outside a PDF crop box.",
       "properties": {
         "x0": {
           "title": "X0",

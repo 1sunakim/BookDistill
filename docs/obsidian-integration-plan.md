@@ -1,6 +1,6 @@
 # 图片知识资产与 Obsidian 接入实施方案
 
-状态：步骤 1–2 已完成：冻结契约及图片资产持久化/API 已实现；步骤 3–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
+状态：步骤 1–3 已完成：冻结契约、图片持久化/API、PDF 图片提取与资源兼容已实现；步骤 4–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
 
 ## 1. 本地项目复核结论
 
@@ -114,7 +114,22 @@ Markdown YAML 属性记录稳定 BookDistill ID、版本、页序、来源和导
 - 在现有 Python 3.11.9 / Pillow 11.3.0 环境检查 `tests/test_image_assets.py`、`tests/test_ingestion_api.py`、`tests/test_task_system.py`：31 passed，1 skipped。跳过项为 Windows 账号无法创建符号链接的实物逃逸检查；普通路径遍历、提交失败清理、重启读取、鉴权、格式/容量限制、迁移升降级与既有上传/任务回归均通过。冻结 JSON 样例可由已实现契约验证。
 - 本步迁移检查使用临时 SQLite 数据库；真实 PostgreSQL、Compose 和 vault 验收在步骤 6 执行。PDF 图片提取、重处理/删书清理、文档资源升级在步骤 3 执行。
 
-下一项工作为步骤 3：在文本解析前独立提取 PDF 位图并提交资产，接入稳定 ID、重处理和删书清理。
+步骤 2 已提交为 `70e210f`。
+
+### 步骤 3 完成记录
+
+- 同步处理与持久化任务共用 `_parse_with_images`：PDF 位图先独立提取并提交，再解析文本。API/Worker 共用相同图片服务组合方式；保留既有任务阶段名称。
+- 提取器按出现位置处理跨页/页内重复位图、无 xref 的 inline 图片与透明遮罩；先检查解码尺寸，遮罩合并为 PNG，保存字节按冻结契约生成 UUIDv5。仅位图提取，无 OCR 或整页渲染。
+- 重处理先完成新清单与文件准备，再事务替换元数据；重复资产保留 ID 和创建时间。失败保留旧清单，清理本次新文件；提交后清理孤儿文件，失败在后续提取时重试。
+- 同书提取、文本解析与删除由 FileLock 跨进程锁保护；路径检查同时拒绝目录/文件重定向，防止链接进入其他书籍目录。
+- 删除书籍显式删除该书图片记录，再清理该书文件，保留独立上传资产；若元数据已删除但文件清理失败，重复删除请求仍会重试清理，随后保留既有 404 语义。
+- `ParsedDocument` 写入 1.1，读取兼容 1.0/1.1；资源升级为 `PdfTocResource`/`ImageResource`，目录消费方、JSON Schema 和前端类型同步。外层快照、Book/Chapter/Chunk/Evidence 与检索语义维持原版本。
+- 历史审计读取 4 份本地 1.0 快照，仅发现 pdf_toc 资源，4 份均通过新模型验证。新版 Schema 通过 1.0 与 1.1 示例验证，前端契约文件独立 TypeScript 编译通过。
+- 检查范围为 PDF 图片、独立图片、上传、文档契约、目录结构、任务恢复、分块和任务系统：63 passed，1 skipped。跳过项仍为 Windows 账号无法创建符号链接；跨进程锁检查通过。任务恢复检查缺少的 click 已从系统纯 Python 库复制到被 Git 忽略的 `.runtime-check/deps`，未修改共享 Python 环境。
+- 现有 `AI-Agents-in-Depth-zh-CN.pdf` 真实提取检查得到 327 个图片出现位置、分布在 89 页；两次提取 ID 完全一致，临时图片已清理。原 PDF、历史快照与原业务数据库未修改。
+- 真实 PostgreSQL/Compose 与完整 ZIP→vault 验收仍在步骤 6 执行。
+
+下一项工作为步骤 4：实现持久化内容到 Markdown、附件和 manifest 的 Obsidian ZIP 导出。
 
 ## 5. Git 基线、worktree 与合并
 

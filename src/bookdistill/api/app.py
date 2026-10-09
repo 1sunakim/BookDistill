@@ -83,7 +83,8 @@ def create_app(
     engine = create_database_engine(resolved.database_url)
     sessions = create_session_factory(engine)
     model_config = ModelConfigStore(resolved.storage_root)
-    service = build_document_service(resolved, sessions)
+    images = ImageAssetService(resolved, sessions)
+    service = build_document_service(resolved, sessions, images)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -96,7 +97,6 @@ def create_app(
     app.state.settings = resolved
     app.state.engine = engine
     app.state.ingestion_service = service
-    images = ImageAssetService(resolved, sessions)
     app.state.image_assets = images
     retrieval = build_retrieval_engine(resolved)
     app.state.retrieval = retrieval
@@ -444,6 +444,7 @@ def create_app(
                 detail={"code": "BOOK_JOB_ACTIVE", "job_id": str(active.job_id)},
             )
         if service.get_book(book_id) is None:
+            service.delete_book(book_id)  # Finish any files left by a committed deletion.
             raise HTTPException(status_code=404, detail="Book not found")
         retrieval.delete_book(book_id)
         service.delete_book(book_id)

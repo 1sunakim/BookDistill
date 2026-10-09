@@ -8,7 +8,7 @@ of silently losing data.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
@@ -99,6 +99,42 @@ class BoundingBox(StrictModel):
         return self
 
 
+class ImageBoundingBox(StrictModel):
+    """Image rectangles may extend outside a PDF crop box."""
+
+    x0: float = Field(allow_inf_nan=False)
+    y0: float = Field(allow_inf_nan=False)
+    x1: float = Field(allow_inf_nan=False)
+    y1: float = Field(allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_area(self) -> "ImageBoundingBox":
+        if self.x1 <= self.x0 or self.y1 <= self.y0:
+            raise ValueError("image bounding box must have positive area")
+        return self
+
+
+class PdfTocEntry(StrictModel):
+    level: int = Field(ge=1)
+    title: str
+    page_index: int = Field(ge=0)
+
+
+class PdfTocResource(StrictModel):
+    type: Literal["pdf_toc"] = "pdf_toc"
+    entries: list[PdfTocEntry]
+
+
+class ImageResource(StrictModel):
+    type: Literal["image"] = "image"
+    asset_id: UUID
+    page_index: int = Field(ge=0)
+    bbox: ImageBoundingBox
+
+
+DocumentResource = Annotated[PdfTocResource | ImageResource, Field(discriminator="type")]
+
+
 class TextStyle(StrictModel):
     font_name: str | None = None
     font_size: float | None = Field(default=None, gt=0)
@@ -172,14 +208,14 @@ class Book(StrictModel):
 
 
 class ParsedDocument(StrictModel):
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = "1.1"
     document_id: UUID
     book_id: UUID
     parser_name: str = Field(min_length=1)
     parser_version: str = Field(min_length=1)
     parse_config_sha256: Sha256 = Field(pattern=r"^[a-f0-9]{64}$")
     pages: list[Page]
-    resources: list[dict[str, Any]] = Field(default_factory=list)
+    resources: list[DocumentResource] = Field(default_factory=list)
     created_at: AwareDatetime
 
     @model_validator(mode="after")
@@ -189,6 +225,14 @@ class ParsedDocument(StrictModel):
             raise ValueError("page_index must be unique within a document")
         if page_indexes != sorted(page_indexes):
             raise ValueError("pages must be sorted by page_index")
+        image_ids = set()
+        for resource in self.resources:
+            if isinstance(resource, ImageResource):
+                if resource.page_index not in page_indexes:
+                    raise ValueError("image resource references a missing document page")
+                if resource.asset_id in image_ids:
+                    raise ValueError("image resource asset_id must be unique")
+                image_ids.add(resource.asset_id)
         return self
 
 

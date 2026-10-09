@@ -14,6 +14,9 @@ from .document_processing import (
     JobStatus,
     Page,
     ParsedDocument,
+    ImageResource,
+    PdfTocEntry,
+    PdfTocResource,
     ParsingJob,
     ProcessingStage,
     TextBlock,
@@ -103,6 +106,13 @@ from .distillation import (
 )
 
 __all__ = [
+    "ImageAsset",
+    "ImageAssetView",
+    "ImageAssetList",
+    "ImageBoundingBox",
+    "ImageResource",
+    "PdfTocEntry",
+    "PdfTocResource",
     "Book",
     "BookStatus",
     "BoundingBox",

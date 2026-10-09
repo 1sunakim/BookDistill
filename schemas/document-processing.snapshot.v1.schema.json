@@ -485,6 +485,67 @@
       "title": "ErrorDetail",
       "type": "object"
     },
+    "ImageBoundingBox": {
+      "additionalProperties": false,
+      "description": "Image rectangles may extend outside a PDF crop box.",
+      "properties": {
+        "x0": {
+          "title": "X0",
+          "type": "number"
+        },
+        "y0": {
+          "title": "Y0",
+          "type": "number"
+        },
+        "x1": {
+          "title": "X1",
+          "type": "number"
+        },
+        "y1": {
+          "title": "Y1",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x0",
+        "y0",
+        "x1",
+        "y1"
+      ],
+      "title": "ImageBoundingBox",
+      "type": "object"
+    },
+    "ImageResource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "image",
+          "default": "image",
+          "title": "Type",
+          "type": "string"
+        },
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "page_index": {
+          "minimum": 0,
+          "title": "Page Index",
+          "type": "integer"
+        },
+        "bbox": {
+          "$ref": "#/$defs/ImageBoundingBox"
+        }
+      },
+      "required": [
+        "asset_id",
+        "page_index",
+        "bbox"
+      ],
+      "title": "ImageResource",
+      "type": "object"
+    },
     "JobStatus": {
       "enum": [
         "queued",
@@ -587,8 +648,11 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
+          "default": "1.1",
+          "enum": [
+            "1.0",
+            "1.1"
+          ],
           "title": "Schema Version",
           "type": "string"
         },
@@ -626,8 +690,21 @@
         },
         "resources": {
           "items": {
-            "additionalProperties": true,
-            "type": "object"
+            "discriminator": {
+              "mapping": {
+                "image": "#/$defs/ImageResource",
+                "pdf_toc": "#/$defs/PdfTocResource"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PdfTocResource"
+              },
+              {
+                "$ref": "#/$defs/ImageResource"
+              }
+            ]
           },
           "title": "Resources",
           "type": "array"
@@ -763,6 +840,55 @@
         "updated_at"
       ],
       "title": "ParsingJob",
+      "type": "object"
+    },
+    "PdfTocEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "page_index": {
+          "minimum": 0,
+          "title": "Page Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "title",
+        "page_index"
+      ],
+      "title": "PdfTocEntry",
+      "type": "object"
+    },
+    "PdfTocResource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "pdf_toc",
+          "default": "pdf_toc",
+          "title": "Type",
+          "type": "string"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/PdfTocEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "title": "PdfTocResource",
       "type": "object"
     },
     "ProcessingStage": {
