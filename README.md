@@ -2,6 +2,8 @@
 
 当前实现了文本型 PDF 的结构化入库闭环：流式上传、文件校验、SHA-256 去重、本地原始文件存储、任务状态、PyMuPDF 页面解析、页眉页脚检测、文本清洗、书签/标题识别、章节树、章节感知 Chunk、结构化错误和中间产物持久化。
 
+图片资产与 Obsidian 导出已接入后端及前端，运行验收待完成。书籍详情支持 PDF 图片预览、下载及 ZIP 导出；侧栏“图片资产”支持独立图片上传。操作说明见 [图片与 Obsidian 使用指南](docs/obsidian-user-guide.md)。
+
 ## 本地运行
 
 安装项目依赖后，在项目根目录执行：
@@ -45,7 +47,7 @@ curl.exe -X POST "http://127.0.0.1:8000/api/v1/books" `
   -F "language=zh-CN"
 ```
 
-当前只接受 PDF。Markdown、TXT、DOCX、EPUB 和图片会被拒绝；扫描页和无有效文本层页面需要等待 OCR 阶段。
+书籍上传接口只接受 PDF。Markdown、TXT、DOCX、EPUB 和图片不能作为书籍上传；静态 PNG/JPEG/WebP 可通过“图片资产”独立上传。扫描页和无有效文本层页面需要等待 OCR 阶段，但先前提取并保存的图片仍可读取。
 
 文本型 PDF 完成章节和 Chunk 构建后会自动加入当前检索引擎，书籍状态更新为
 `ready`，无需再次手工提交 Chunk。

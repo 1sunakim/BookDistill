@@ -230,7 +230,7 @@ def create_app(
         allow_credentials=False,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Idempotency-Key", "X-Request-ID", "X-Trace-ID", "X-BookDistill-API-Key", "If-None-Match"],
-        expose_headers=["X-Request-ID", "X-Trace-ID", "ETag", "Content-Disposition"],
+        expose_headers=["X-Request-ID", "X-Trace-ID", "X-Artifact-ID", "ETag", "Content-Disposition"],
     )
 
     @app.exception_handler(ImageAssetError)

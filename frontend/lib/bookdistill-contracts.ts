@@ -8,6 +8,16 @@ export interface Book {
 }
 
 export type ImageBoundingBox = {x0:number;y0:number;x1:number;y1:number};
+export type ImageAssetView = {
+  schema_version:"1.0";asset_id:string;mime_type:"image/png"|"image/jpeg"|"image/webp";
+  width:number;height:number;size_bytes:number;sha256:string;status:"ready";
+  extractor_version:string;created_at:string;
+} & (
+  | {source_type:"pdf";book_id:string;page_index:number;bbox:ImageBoundingBox}
+  | {source_type:"upload";book_id:null;page_index:null;bbox:null}
+);
+export interface ImageAssetList {items:ImageAssetView[];total:number;limit:number;offset:number;}
+export interface ObsidianExportOptions {includePdf?:boolean;artifactIds?:string[];}
 export type DocumentResource =
   | {type:"pdf_toc";entries:{level:number;title:string;page_index:number}[]}
   | {type:"image";asset_id:string;page_index:number;bbox:ImageBoundingBox};

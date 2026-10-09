@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { bookDistillApi } from "@/lib/bookdistill-api";
 import type { Book, Chapter, Chunk, UploadAccepted } from "@/lib/bookdistill-contracts";
 import { Cover, EmptyState, ErrorPanel, LoadingState, StatusBadge } from "./common";
+import { BookImages, ObsidianExportPanel } from "./private-assets";
 
 export function LibraryView({books,loading,error,onRetry,onOpen,onAsk,onUpload}:{books:Book[];loading:boolean;error:string|null;onRetry:()=>void;onOpen:(book:Book)=>void;onAsk:(book:Book)=>void;onUpload:()=>void}) {
   const [query,setQuery]=useState("");
@@ -20,15 +21,38 @@ export function LibraryView({books,loading,error,onRetry,onOpen,onAsk,onUpload}:
   </Page>;
 }
 
-export function BookView({book,onAsk}:{book:Book;onAsk:()=>void}) {
-  const [chapters,setChapters]=useState<Chapter[]>([]); const [chunks,setChunks]=useState<Chunk[]>([]); const [chapterId,setChapterId]=useState<string>(""); const [error,setError]=useState<string|null>(null); const [loading,setLoading]=useState(true);
-  useEffect(()=>{let active=true;Promise.all([bookDistillApi.getChapters(book.book_id),bookDistillApi.getChunks(book.book_id)]).then(([c,k])=>{if(active){setChapters(c);setChunks(k);setChapterId(c[0]?.chapter_id??"");}}).catch(e=>active&&setError(e instanceof Error?e.message:String(e))).finally(()=>active&&setLoading(false));return()=>{active=false};},[book.book_id]);
-  const visible=chapterId?chunks.filter(chunk=>chunk.chapter_id===chapterId):chunks; const selected=chapters.find(c=>c.chapter_id===chapterId);
-  if(loading)return <Page><LoadingState label="正在加载章节与原文块"/></Page>;
+export function BookView({book,onAsk,onConfigureKey}:{book:Book;onAsk:()=>void;onConfigureKey:()=>void}) {
+  const [chapters,setChapters]=useState<Chapter[]>([]);
+  const [chunks,setChunks]=useState<Chunk[]>([]);
+  const [chapterId,setChapterId]=useState("");
+  const [section,setSection]=useState<"text"|"images">(book.status==="failed"?"images":"text");
+  const [error,setError]=useState<string|null>(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    const controller=new AbortController();setLoading(true);setError(null);setChapters([]);setChunks([]);setChapterId("");
+    Promise.all([bookDistillApi.getChapters(book.book_id,controller.signal),bookDistillApi.getChunks(book.book_id,controller.signal)])
+      .then(([values,blocks])=>{if(!controller.signal.aborted){setChapters(values);setChunks(blocks);setChapterId(values[0]?.chapter_id??"")}})
+      .catch(cause=>{if(!controller.signal.aborted)setError(cause instanceof Error?cause.message:String(cause))})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+    return()=>controller.abort();
+  },[book.book_id,book.updated_at]);
+  const visible=chapterId?chunks.filter(chunk=>chunk.chapter_id===chapterId):chunks;
+  const selected=chapters.find(chapter=>chapter.chapter_id===chapterId);
   return <div className="min-h-[calc(100vh-72px)] xl:grid xl:grid-cols-[280px_minmax(0,1fr)_270px]">
-    <aside className="border-r bg-white p-5"><div className="mb-5 flex items-center gap-3"><Cover book={book} className="h-20 w-14"/><div className="min-w-0"><h2 className="line-clamp-2 text-sm font-semibold">{book.title}</h2><p className="mt-1 truncate text-xs text-muted-foreground">{book.authors.join("、")||"作者未识别"}</p></div></div><p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">目录 · {chapters.length} 章</p><div className="space-y-1">{chapters.map(chapter=><button key={chapter.chapter_id} onClick={()=>setChapterId(chapter.chapter_id)} className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm ${chapterId===chapter.chapter_id?"bg-secondary text-primary":"hover:bg-muted"}`}><ChevronRight className="mt-0.5 size-4 shrink-0"/><span className="flex-1">{chapter.title}</span><span className="text-xs opacity-60">{chapter.page_start+1}</span></button>)}</div></aside>
-    <article className="bg-[#fbfbfc] px-5 py-8 sm:px-10 lg:px-14"><div className="mx-auto max-w-3xl">{error&&<ErrorPanel message={error}/>}<div className="mb-7 flex items-start justify-between border-b pb-5"><div><p className="text-xs font-medium text-primary">{selected?`第 ${selected.order_index+1} 章 · 层级 ${selected.level}`:"已切分原文"}</p><h2 className="mt-2 text-2xl font-semibold">{selected?.title??book.title}</h2></div>{selected&&<span className="rounded-lg border bg-white px-3 py-1.5 text-sm text-muted-foreground">PDF {selected.page_start+1}–{selected.page_end+1}</span>}</div>{visible.length?<div className="space-y-5">{visible.map(chunk=><section key={chunk.chunk_id} className="chunk-block"><div className="chunk-label">{chunk.content_type} · PDF {chunk.page_start+1}–{chunk.page_end+1} · {chunk.token_count} tokens</div><p className="whitespace-pre-wrap text-[16px] leading-8 text-[#323b4d]">{chunk.text}</p></section>)}</div>:<EmptyState title="此章节暂无文本块" description="可在系统状态页查看处理任务，或等待索引阶段完成。"/>}</div></article>
-    <aside className="border-l bg-white p-5"><Button onClick={onAsk} disabled={book.status!=="ready"} className="w-full rounded-xl"><MessageSquareText className="size-4"/>基于本书提问</Button><div className="mt-7 space-y-4 text-sm"><Metric label="状态" value={book.status}/><Metric label="章节" value={String(chapters.length)}/><Metric label="文本块" value={String(chunks.length)}/><Metric label="语言" value={book.language}/><Metric label="协议" value={book.schema_version}/></div></aside>
+    <aside className="border-r bg-white p-5">
+      <div className="mb-5 flex items-center gap-3"><Cover book={book} className="h-20 w-14"/><div className="min-w-0"><h2 className="line-clamp-2 text-sm font-semibold">{book.title}</h2><p className="mt-1 truncate text-xs text-muted-foreground">{book.authors.join("、")||"作者未识别"}</p></div></div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">目录 · {chapters.length} 章</p>
+      <div className="space-y-1">{chapters.map(chapter=><button key={chapter.chapter_id} onClick={()=>{setChapterId(chapter.chapter_id);setSection("text")}} className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm ${chapterId===chapter.chapter_id?"bg-secondary text-primary":"hover:bg-muted"}`}><ChevronRight className="mt-0.5 size-4 shrink-0"/><span className="flex-1">{chapter.title}</span><span className="text-xs opacity-60">{chapter.page_start+1}</span></button>)}</div>
+    </aside>
+    <article className="bg-[#fbfbfc] px-5 py-8 sm:px-10 lg:px-14"><div className="mx-auto max-w-3xl">
+      <div className="mb-6 flex gap-2" aria-label="书籍内容"><Button variant={section==="text"?"default":"outline"} aria-pressed={section==="text"} onClick={()=>setSection("text")}>章节原文</Button><Button variant={section==="images"?"default":"outline"} aria-pressed={section==="images"} onClick={()=>setSection("images")}>书中图片</Button></div>
+      {section==="images"?<BookImages book={book} onConfigureKey={onConfigureKey}/>:loading?<LoadingState label="正在加载章节与原文块"/>:<>
+        {error&&<ErrorPanel message={error}/>}
+        <div className="mb-7 flex items-start justify-between gap-3 border-b pb-5"><div><p className="text-xs font-medium text-primary">{selected?`第 ${selected.order_index+1} 章 · 层级 ${selected.level}`:"已切分原文"}</p><h2 className="mt-2 text-2xl font-semibold">{selected?.title??book.title}</h2></div>{selected&&<span className="shrink-0 rounded-lg border bg-white px-3 py-1.5 text-sm text-muted-foreground">PDF {selected.page_start+1}–{selected.page_end+1}</span>}</div>
+        {visible.length?<div className="space-y-5">{visible.map(chunk=><section key={chunk.chunk_id} className="chunk-block"><div className="chunk-label">{chunk.content_type} · PDF {chunk.page_start+1}–{chunk.page_end+1} · {chunk.token_count} tokens</div><p className="whitespace-pre-wrap text-[16px] leading-8 text-[#323b4d]">{chunk.text}</p></section>)}</div>:<EmptyState title={book.status==="failed"?"文本处理失败":"此章节暂无文本块"} description={book.status==="failed"?"请在系统状态中查看失败原因。已保存图片可通过“书中图片”查看；扫描页暂不支持文本识别。":"可在系统状态页查看处理任务，或等待索引阶段完成。"} action={<Button variant="outline" onClick={()=>setSection("images")}>查看书中图片</Button>}/>}
+      </>}
+    </div></article>
+    <aside className="border-l bg-white p-5"><Button onClick={onAsk} disabled={book.status!=="ready"} className="w-full rounded-xl"><MessageSquareText className="size-4"/>基于本书提问</Button><div className="mt-7 space-y-4 text-sm"><Metric label="状态" value={book.status}/><Metric label="章节" value={String(chapters.length)}/><Metric label="文本块" value={String(chunks.length)}/><Metric label="语言" value={book.language}/><Metric label="协议" value={book.schema_version}/></div><ObsidianExportPanel book={book} onConfigureKey={onConfigureKey}/></aside>
   </div>;
 }
 

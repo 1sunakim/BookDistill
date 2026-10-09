@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian v1 冻结契约
 
-状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–4 后端代码已实现，步骤 4 导出运行验收待步骤 6，步骤 5 前端待实现。
+状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–5 代码已实现，步骤 4–5 运行验收待步骤 6。
 依据：`main@ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，实施分支 `integration/obsidian-v1`。
 配套请求/响应样例：`examples/obsidian-v1/contract-examples.json`。本文约定新增行为；现有问答、蒸馏和检索契约维持其版本。
 
@@ -61,6 +61,8 @@ PDF 资产 UUIDv5 的固定 namespace 为 `7d7e0609-974f-4ae2-a6de-33630557606d`
 默认限制：`BOOKDISTILL_IMAGE_MAX_UPLOAD_BYTES=20971520`（20 MiB）、`BOOKDISTILL_IMAGE_MAX_PIXELS=40000000`、`BOOKDISTILL_IMAGE_MAX_DIMENSION=16384`。配置值必须为正整数，启动时验证。上传按流限制字节数；解码前检查头部尺寸，解码后检查实际尺寸与完整性，不信任文件名或请求 MIME。PDF 提取使用相同解码上限，超限报 `PDF_IMAGE_LIMIT_EXCEEDED`，不可静默遗漏图片；不改变 PDF 上传上限。
 
 图片内容响应：真实 `Content-Type`、`Content-Length`、强 ETag `"<sha256>"`、`Cache-Control: private, no-cache`、`X-Content-Type-Options: nosniff`，以 ID 命名的 inline `Content-Disposition`。鉴权成功后才处理 `If-None-Match`；304 同样带缓存头，HEAD 若支持也须鉴权。ZIP 使用 `application/zip`、attachment 文件名 `bookdistill-<book_id>.zip` 和 `Cache-Control: private, no-store`。前端以带 Key 的 fetch 获取 Blob，切换资产/卸载时释放 object URL；不把 Key 放在 img src。
+
+步骤 5 沿用现有同步蒸馏响应的 `X-Artifact-ID`，将其加入 CORS expose_headers，供浏览器显示已保存产物 ID；生成响应正文保持原协议。前端不自动发现或选择保存产物，以用户填写的显式 ID 导出。
 
 ## 3. 图片服务边界与处理事务
 
