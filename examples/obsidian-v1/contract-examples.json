@@ -82,5 +82,36 @@
     ]
   },
   "chapter_markdown_without_pdf": "---\nbookdistill_format_version: '1.0'\nbookdistill_kind: chapter\nbookdistill_id: '44444444-4444-4444-8444-444444444444'\nsource_book_ids: ['22222222-2222-4222-8222-222222222222']\npage_start: 0\npage_end: 0\nexported_at: '2026-10-09T00:00:00Z'\n---\n\n# 第一章\n\n保存的章节正文。\n\n![[BookDistill/Assets/11111111-1111-5111-8111-111111111111.png]]\n",
-  "pdf_page_link_when_included": "[[BookDistill/Sources/22222222-2222-4222-8222-222222222222.pdf#page=1]]"
+  "pdf_page_link_when_included": "[[BookDistill/Sources/22222222-2222-4222-8222-222222222222.pdf#page=1]]",
+  "viewpoint_source_scope_excerpt": {
+    "payload": {
+      "books": [{
+        "book_id": "22222222-2222-4222-8222-222222222222",
+        "book_title": "第一本书",
+        "evidence": [{
+          "evidence_id": "77777777-7777-4777-8777-777777777777",
+          "chunk_id": "88888888-8888-4888-8888-888888888888",
+          "chapter_id": "44444444-4444-4444-8444-444444444444",
+          "book_id": "22222222-2222-4222-8222-222222222222",
+          "page_start": 0, "page_end": 0, "text": "已保存的第一本书证据。"
+        }]
+      }, {
+        "book_id": "66666666-6666-4666-8666-666666666666",
+        "book_title": "第二本书",
+        "evidence": [{
+          "evidence_id": "99999999-9999-4999-8999-999999999999",
+          "chunk_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "chapter_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "book_id": "66666666-6666-4666-8666-666666666666",
+          "page_start": 2, "page_end": 3, "text": "已保存的第二本书证据。"
+        }]
+      }]
+    }
+  },
+  "changed_export_error": {
+    "code": "EXPORT_SOURCE_CHANGED",
+    "message": "Saved content changed while exporting; retry the export.",
+    "trace_id": "example-trace",
+    "details": {}
+  }
 }

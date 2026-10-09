@@ -67,6 +67,10 @@ from bookdistill.model_config_api import create_model_config_router
 from bookdistill.image_assets import ImageAssetService
 from bookdistill.image_assets.api import create_image_router
 from bookdistill.image_assets.errors import ImageAssetError
+from bookdistill.obsidian_export import ObsidianExportService
+from bookdistill.obsidian_export.api import create_export_router
+from bookdistill.obsidian_export.errors import ExportError
+from bookdistill.obsidian_export.repository import ExportRepository
 
 from .schemas import RebuildBookRequest, ReprocessBookRequest, UploadAccepted
 from .content_auth import is_private_content_path, require_content_key
@@ -113,6 +117,10 @@ def create_app(
     app.state.distillation = distillation
     rate_windows: dict[str, deque[float]] = defaultdict(deque)
     app.state.generation_repository = generation_repository
+    exporter = ObsidianExportService(
+        ExportRepository(sessions, generation_repository), images, service.storage, images.book_lock,
+    )
+    app.state.obsidian_export = exporter
 
     def index_book(book_id: UUID) -> dict[str, object]:
         chunks = service.get_chunks(book_id)
@@ -227,6 +235,13 @@ def create_app(
 
     @app.exception_handler(ImageAssetError)
     async def handle_image_error(request: Request, error: ImageAssetError) -> JSONResponse:
+        return JSONResponse(status_code=error.status_code, content={
+            "code": error.code, "message": error.message,
+            "trace_id": request.state.trace_id, "details": {},
+        })
+
+    @app.exception_handler(ExportError)
+    async def handle_export_error(request: Request, error: ExportError) -> JSONResponse:
         return JSONResponse(status_code=error.status_code, content={
             "code": error.code, "message": error.message,
             "trace_id": request.state.trace_id, "details": {},
@@ -486,6 +501,7 @@ def create_app(
         return chunks
 
     app.include_router(create_image_router(images))
+    app.include_router(create_export_router(exporter))
     app.include_router(create_model_config_router(model_config, resolved))
     app.include_router(create_retrieval_router(retrieval))
     app.include_router(create_evaluation_router(retrieval, resolved.storage_root))

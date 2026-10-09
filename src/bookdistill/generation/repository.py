@@ -182,8 +182,11 @@ class GenerationRepository:
             session.add(record)
         return self.get_artifact(UUID(record.id))
 
-    def get_artifact(self, artifact_id: UUID) -> dict:
-        with self.sessions() as session:
+    def get_artifact(self, artifact_id: UUID, *, session: Session | None = None) -> dict:
+        if session is None:
+            with self.sessions() as reader:
+                return self.get_artifact(artifact_id, session=reader)
+        else:
             item = session.get(DistillationArtifactRecord, str(artifact_id))
             if item is None:
                 raise ValueError("artifact not found")

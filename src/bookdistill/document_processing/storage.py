@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -61,6 +62,15 @@ class LocalBookStorage:
 
     def book_root(self, book_id: UUID | str) -> Path:
         return self.root / "books" / str(book_id)
+
+    @contextmanager
+    def open_original(self, book_id: UUID):
+        """Read an ID-owned PDF without trusting a persisted absolute URI."""
+        expected = self.book_root(UUID(str(book_id))) / "original.pdf"
+        if expected.resolve() != expected:
+            raise ValueError("book storage redirects outside its owned path")
+        with expected.open("rb") as source:
+            yield source
 
     def write_json_artifact(self, book_id: UUID | str, name: str, payload: dict[str, Any]) -> Path:
         destination = self.book_root(book_id) / name

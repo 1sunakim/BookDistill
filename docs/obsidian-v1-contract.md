@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian v1 冻结契约
 
-状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–3 图片持久化/API、PDF 提取与资源兼容已实现，步骤 4–5 待实现。
+状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2–4 后端代码已实现，步骤 4 导出运行验收待步骤 6，步骤 5 前端待实现。
 依据：`main@ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，实施分支 `integration/obsidian-v1`。
 配套请求/响应样例：`examples/obsidian-v1/contract-examples.json`。本文约定新增行为；现有问答、蒸馏和检索契约维持其版本。
 
@@ -55,6 +55,7 @@ PDF 资产 UUIDv5 的固定 namespace 为 `7d7e0609-974f-4ae2-a6de-33630557606d`
 | 422 | `VALIDATION_ERROR` | 无效 UUID、查询参数、缺失 file、超出产物 ID 数量 |
 | 409 | `ARTIFACT_SCOPE_MISMATCH` / `ARTIFACT_SOURCES_INVALID` | 产物与所选书无关 / 保存引用无法可靠解析 |
 | 409 | `BOOK_TEXT_NOT_READY` | 书籍尚无可导出的文本快照/章节；图片 API 仍可用 |
+| 409 | `EXPORT_SOURCE_CHANGED` | 生成 ZIP 期间持久化快照或文件内容发生变化；整包拒绝 |
 | 500 | `IMAGE_STORAGE_ERROR` / `EXPORT_STORAGE_ERROR` | 存储异常或路径校验失败；不回显内部路径 |
 
 默认限制：`BOOKDISTILL_IMAGE_MAX_UPLOAD_BYTES=20971520`（20 MiB）、`BOOKDISTILL_IMAGE_MAX_PIXELS=40000000`、`BOOKDISTILL_IMAGE_MAX_DIMENSION=16384`。配置值必须为正整数，启动时验证。上传按流限制字节数；解码前检查头部尺寸，解码后检查实际尺寸与完整性，不信任文件名或请求 MIME。PDF 提取使用相同解码上限，超限报 `PDF_IMAGE_LIMIT_EXCEEDED`，不可静默遗漏图片；不改变 PDF 上传上限。
@@ -94,7 +95,9 @@ ZIP entry 全部使用第 3 节实施方案约定的 `BookDistill/` 前缀和 ID
 
 `include_pdf=false` 时不生成任何 PDF 文件链接，仅保留书籍 ID 和页序等来源属性。跨书产物的其他来源记为 ID、书名、页序和引用，不生成未打包的章节/PDF 链接。
 
-显式 artifact_id 按 `GenerationRepository.get_artifact` 读取当前已保存内容、version、edit_state、source_scope 和 citations；PATCH 后的保存内容原样导出语义，不自动挑选父子版本。来自 `source_scope.payload.evidence` 和全部 citations 的 book_id 构成来源集合，要求与所选 book_id 相交；来源冲突或无法解析时拒绝，不假定单书。页范围从已保存 evidence/可核验 chunk 获取，无法核验则标明缺失，不编造页号。摘要/知识点/题目/观点分别按保存类型渲染完整内容与引用，无 regenerate 或模型调用。
+显式 artifact_id 按 `GenerationRepository.get_artifact` 读取当前已保存内容、version、edit_state、source_scope 和 citations；PATCH 后的保存内容原样导出语义，不自动挑选父子版本。来自 `source_scope.payload.evidence`、观点比较的 `source_scope.payload.books[].evidence` 和全部 citations 的 book_id 构成来源集合，要求与所选 book_id 相交；分组 book_id 必须与组内 evidence 一致，来源冲突或无法解析时拒绝，不假定单书。页范围从已保存 evidence 获取，缺失则明确标记，不编造页号。摘要/知识点/题目/观点按保存字段渲染，附上保存 content 的完整 JSON 以保留人工编辑新增的任意字段；来源部分保留全部 evidence 和 citations，无 regenerate 或模型调用。
+
+步骤 4 细化：文本和显式产物在单个数据库读取事务中取得（PostgreSQL REPEATABLE READ、SQLite 显式 BEGIN），图片清单与读取由同书 FileLock 保护；封包前重读并比较整个快照。输出流采用临时 spool，超过 8 MiB 落到系统临时文件，生成失败关闭清理，只有完整 ZIP 才开始 HTTP 响应。读取图片和可选 PDF 时核对保存大小与 SHA-256。
 
 Markdown YAML 共同字段：`bookdistill_format_version: "1.0"`、`bookdistill_kind`、`bookdistill_id`、`source_book_ids`、`exported_at`；章节另有 page_start/page_end（从 0 开始），产物另有 artifact_version/edit_state。导出时间为一次请求统一 UTC 时刻，不能作为身份。
 

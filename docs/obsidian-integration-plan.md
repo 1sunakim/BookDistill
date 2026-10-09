@@ -1,6 +1,6 @@
 # 图片知识资产与 Obsidian 接入实施方案
 
-状态：步骤 1–3 已完成：冻结契约、图片持久化/API、PDF 图片提取与资源兼容已实现；步骤 4–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
+状态：步骤 1–3 已完成，步骤 4 Obsidian 导出代码已完成、运行验收待步骤 6；步骤 5–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
 
 ## 1. 本地项目复核结论
 
@@ -129,7 +129,18 @@ Markdown YAML 属性记录稳定 BookDistill ID、版本、页序、来源和导
 - 现有 `AI-Agents-in-Depth-zh-CN.pdf` 真实提取检查得到 327 个图片出现位置、分布在 89 页；两次提取 ID 完全一致，临时图片已清理。原 PDF、历史快照与原业务数据库未修改。
 - 真实 PostgreSQL/Compose 与完整 ZIP→vault 验收仍在步骤 6 执行。
 
-下一项工作为步骤 4：实现持久化内容到 Markdown、附件和 manifest 的 Obsidian ZIP 导出。
+### 步骤 4 实现记录
+
+- 新增 `obsidian_export` 模块与受保护的 `GET /api/v1/exports/obsidian`。默认不含 PDF，只读取显式 artifact_id，去重后最多 100 个，不调用生成服务或模型。
+- 书籍目录、章节、图片、可选 PDF 和产物均用稳定 ID 命名，按完整 entry 名排序；manifest 记录实际输出的大小与 SHA-256，排除自身。
+- YAML 使用 JSON 兼容的安全值；标题、正文和引用转义，Wiki 别名单独处理。章节正文按源文本块分配一次，保留页序/块序、父章节链接和页范围图片嵌入。
+- 支持四种已保存产物的完整字段渲染，并附保存 content JSON；保留所选 ID 的版本和编辑状态。观点比较新增识别 `payload.books[].evidence`，全部跨书来源保留，其他书籍不生成未打包附件链接。
+- 文本与产物在单个数据库读取事务中形成快照；图片清单和读取持有同书 FileLock。封包后核对文件字节并重读快照，变化时返回 `EXPORT_SOURCE_CHANGED`，清理临时输出。
+- 图片只经 ImageReader 读取；原 PDF 新增按 ID 的受控读取接口，拒绝链接重定向，不使用数据库中的绝对 storage_uri。响应只有完整 ZIP，spool 超过 8 MiB 自动落临时文件，发送结束后关闭。
+- 已完成代码与差异的静态审阅；本轮未新增或运行测试，不能据此声明导出运行验收通过。SQLite/PostgreSQL 导出、鉴权、链接、跨书引用、并发变化、回归与 ZIP→vault 的运行检查待步骤 6。
+- 格式使用说明见 `examples/obsidian-v1/export-format.md`，冻结样例已补充观点比较来源及快照变化错误。
+
+下一项工作为步骤 5：前端图片列表、预览/下载与 Obsidian 导出操作。
 
 ## 5. Git 基线、worktree 与合并
 
