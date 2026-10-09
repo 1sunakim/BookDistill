@@ -28,10 +28,13 @@ from bookdistill.contracts import (  # noqa: E402
     RetrievalRequest,
     RetrievalResponse,
 )
+from bookdistill.contracts.image_assets import ImageAssetList, ImageAssetView  # noqa: E402
 
 
 def main() -> None:
     schemas = {
+        "images.asset-view.v1.schema.json": ImageAssetView,
+        "images.list.v1.schema.json": ImageAssetList,
         "document-processing.snapshot.v1.schema.json": DocumentProcessingSnapshot,
         "retrieval.index-chunks-request.v1.schema.json": IndexChunksRequest,
         "retrieval.request.v1.schema.json": RetrievalRequest,

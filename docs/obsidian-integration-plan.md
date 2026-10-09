@@ -1,6 +1,6 @@
 # 图片知识资产与 Obsidian 接入实施方案
 
-状态：步骤 1 完成：独立基线、冻结契约与样例已准备；步骤 2–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
+状态：步骤 1–2 已完成：冻结契约及图片资产持久化/API 已实现；步骤 3–6 待实施。2026-10-09 复核基线：`main@ce9a51d`。本文取代旧的 `image-assets-obsidian-plan.md`。
 
 ## 1. 本地项目复核结论
 
@@ -101,7 +101,20 @@ Markdown YAML 属性记录稳定 BookDistill ID、版本、页序、来源和导
 - ZIP 格式以第 3 节为准；显式产物必须与所选书籍来源相交，跨书产物保留全部来源；保存版本按所选 ID 读取。
 - 步骤 3 在文本解析前完成资产持久化，后续文本失败不得回滚已完成的资产保存；提取失败与文本失败应可区分。
 
-步骤 1 已完成，尚未实现运行接口、迁移或真实 vault 验收。独立集成 worktree 为 `E:/计划项目/BookDistill-obsidian-v1`，分支为 `integration/obsidian-v1`。下一项工作为步骤 2：实现图片契约、持久化、上传校验和受保护的图片 API。
+步骤 1 已完成并提交为 `a0714eb`。独立集成 worktree 为 `E:/计划项目/BookDistill-obsidian-v1`，分支为 `integration/obsidian-v1`。
+
+### 步骤 2 完成记录
+
+- 已实现 `ImageAsset`/`ImageAssetView`/分页列表契约与两份公开 JSON Schema，公开响应不含存储路径。
+- 新增迁移 `20261009_0001`，父版本 `20260921_0001`；持久化表包含 PDF 位置字段，为步骤 3 预留；独立上传不创建 Book。
+- 已实现 PNG/JPEG/WebP 实际格式识别、完整解码和字节/像素/尺寸上限，拒绝损坏、截断、动画和不支持格式。新增 Pillow 依赖与固定版本。
+- 已实现受控路径、临时文件、原子落盘、提交失败清理与 `ImageReader` 只读接口；内容响应校验大小与 SHA-256，提供 MIME、ETag、私有缓存策略及条件请求。
+- 上传、分页列表、按书列图、元数据、内容五个端点已接线；中间件在解析请求正文前鉴权，路由共用鉴权依赖。未配置 Key 返回 503，未授权返回 401，CORS 预检可用。
+- Settings、`.env.example`、Compose 共用配置已同步；尚未启动 Compose 或操作现有业务数据库。
+- 在现有 Python 3.11.9 / Pillow 11.3.0 环境检查 `tests/test_image_assets.py`、`tests/test_ingestion_api.py`、`tests/test_task_system.py`：31 passed，1 skipped。跳过项为 Windows 账号无法创建符号链接的实物逃逸检查；普通路径遍历、提交失败清理、重启读取、鉴权、格式/容量限制、迁移升降级与既有上传/任务回归均通过。冻结 JSON 样例可由已实现契约验证。
+- 本步迁移检查使用临时 SQLite 数据库；真实 PostgreSQL、Compose 和 vault 验收在步骤 6 执行。PDF 图片提取、重处理/删书清理、文档资源升级在步骤 3 执行。
+
+下一项工作为步骤 3：在文本解析前独立提取 PDF 位图并提交资产，接入稳定 ID、重处理和删书清理。
 
 ## 5. Git 基线、worktree 与合并
 

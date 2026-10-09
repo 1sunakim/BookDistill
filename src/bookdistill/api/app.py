@@ -64,8 +64,12 @@ from bookdistill.task_system.repository import JobRepository
 from bookdistill.observability import metrics
 from bookdistill.model_config import ModelConfigStore
 from bookdistill.model_config_api import create_model_config_router
+from bookdistill.image_assets import ImageAssetService
+from bookdistill.image_assets.api import create_image_router
+from bookdistill.image_assets.errors import ImageAssetError
 
 from .schemas import RebuildBookRequest, ReprocessBookRequest, UploadAccepted
+from .content_auth import is_private_content_path, require_content_key
 
 
 def create_app(
@@ -92,6 +96,8 @@ def create_app(
     app.state.settings = resolved
     app.state.engine = engine
     app.state.ingestion_service = service
+    images = ImageAssetService(resolved, sessions)
+    app.state.image_assets = images
     retrieval = build_retrieval_engine(resolved)
     app.state.retrieval = retrieval
     generation = generation_service or build_generation_service(resolved, model_config)
@@ -160,10 +166,20 @@ def create_app(
         window = rate_windows[client_host]
         while window and window[0] <= now - 60:
             window.popleft()
+        content_auth_error = None
+        if request.method != "OPTIONS" and is_private_content_path(request.url.path):
+            try:
+                require_content_key(request)
+            except HTTPException as error:
+                content_auth_error = error
         if len(window) >= resolved.rate_limit_per_minute:
             response = JSONResponse(status_code=429, content={
                 "code": "RATE_LIMITED", "message": "Request rate limit exceeded.",
                 "trace_id": request.state.trace_id, "details": {},
+            })
+        elif content_auth_error is not None:
+            response = JSONResponse(status_code=content_auth_error.status_code, content={
+                **content_auth_error.detail, "trace_id": request.state.trace_id, "details": {},
             })
         elif request.url.path.startswith("/api/v1/model-config") and not resolved.api_key:
             response = JSONResponse(status_code=503, content={
@@ -181,7 +197,7 @@ def create_app(
                 or request.url.path == "/api/v1/metrics"
             )
             and not secrets.compare_digest(
-                request.headers.get("X-BookDistill-API-Key", ""), resolved.api_key
+                request.headers.get("X-BookDistill-API-Key", "").encode("utf-8"), resolved.api_key.encode("utf-8")
             )
         ):
             response = JSONResponse(status_code=401, content={
@@ -205,9 +221,16 @@ def create_app(
         allow_origins=list(resolved.cors_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Idempotency-Key", "X-Request-ID", "X-Trace-ID", "X-BookDistill-API-Key"],
-        expose_headers=["X-Request-ID", "X-Trace-ID"],
+        allow_headers=["Content-Type", "Idempotency-Key", "X-Request-ID", "X-Trace-ID", "X-BookDistill-API-Key", "If-None-Match"],
+        expose_headers=["X-Request-ID", "X-Trace-ID", "ETag", "Content-Disposition"],
     )
+
+    @app.exception_handler(ImageAssetError)
+    async def handle_image_error(request: Request, error: ImageAssetError) -> JSONResponse:
+        return JSONResponse(status_code=error.status_code, content={
+            "code": error.code, "message": error.message,
+            "trace_id": request.state.trace_id, "details": {},
+        })
 
     @app.exception_handler(HTTPException)
     async def handle_http_error(request: Request, error: HTTPException) -> JSONResponse:
@@ -461,6 +484,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Book not found")
         return chunks
 
+    app.include_router(create_image_router(images))
     app.include_router(create_model_config_router(model_config, resolved))
     app.include_router(create_retrieval_router(retrieval))
     app.include_router(create_evaluation_router(retrieval, resolved.storage_root))

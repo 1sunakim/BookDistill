@@ -1,4 +1,5 @@
 """Public document-processing contracts."""
+from .image_assets import ImageAsset, ImageAssetView, ImageAssetList, ImageBoundingBox
 
 from .document_processing import (
     Book,

@@ -20,6 +20,9 @@ class Settings:
     worker_heartbeat_ttl_seconds: int = 45
     minimum_storage_free_bytes: int = 64 * 1024 * 1024
     max_upload_bytes: int = 100 * 1024 * 1024
+    image_max_upload_bytes: int = 20 * 1024 * 1024
+    image_max_pixels: int = 40_000_000
+    image_max_dimension: int = 16384
     minimum_text_characters_per_page: int = 10
     chunk_max_tokens: int = 512
     chunk_overlap_tokens: int = 64
@@ -61,6 +64,12 @@ class Settings:
         "http://127.0.0.1:3000",
     )
 
+    def __post_init__(self) -> None:
+        for name in ("image_max_upload_bytes", "image_max_pixels", "image_max_dimension"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+
     @classmethod
     def from_environment(cls) -> "Settings":
         storage_root = Path(os.getenv("BOOKDISTILL_STORAGE_ROOT", "data")).resolve()
@@ -87,6 +96,9 @@ class Settings:
             max_upload_bytes=int(
                 os.getenv("BOOKDISTILL_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024))
             ),
+            image_max_upload_bytes=int(os.getenv("BOOKDISTILL_IMAGE_MAX_UPLOAD_BYTES", "20971520")),
+            image_max_pixels=int(os.getenv("BOOKDISTILL_IMAGE_MAX_PIXELS", "40000000")),
+            image_max_dimension=int(os.getenv("BOOKDISTILL_IMAGE_MAX_DIMENSION", "16384")),
             minimum_text_characters_per_page=int(
                 os.getenv("BOOKDISTILL_MIN_TEXT_CHARS_PER_PAGE", "10")
             ),

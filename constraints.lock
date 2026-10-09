@@ -4,6 +4,7 @@ alembic==1.16.5
 celery==5.5.3
 fastapi==0.116.1
 pydantic==2.12.5
+Pillow==11.3.0
 PyMuPDF==1.26.4
 pypdf==6.0.0
 python-multipart==0.0.20

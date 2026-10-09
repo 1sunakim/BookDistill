@@ -1,6 +1,6 @@
 # 图片资产与 Obsidian v1 冻结契约
 
-状态：2026-10-09 冻结，用于六步计划的步骤 2–5；运行实现尚未完成。
+状态：2026-10-09 冻结，用于六步计划的步骤 2–5；步骤 2 图片持久化/API 已实现，步骤 3–5 待实现。
 依据：`main@ce9a51d57d1cc1d44d58202901ccb388ddb67df0`，实施分支 `integration/obsidian-v1`。
 配套请求/响应样例：`examples/obsidian-v1/contract-examples.json`。本文约定新增行为；现有问答、蒸馏和检索契约维持其版本。
 
@@ -106,4 +106,4 @@ Markdown YAML 共同字段：`bookdistill_format_version: "1.0"`、`bookdistill_
 
 步骤 2 实现 `contracts/image_assets.py`、`image_assets/`、DB 模型/迁移、路由、Settings、`.env.example` 和 Compose 配置；初版迁移以确认后的 Alembic head 为父版本。步骤 3 更新解析接线和文档资源兼容。步骤 4 实现 `obsidian_export/`。步骤 5 同步前端类型、Blob 客户端、书籍详情与上传资产访问入口。
 
-实施中如需改变以上字段、状态码、目录结构或兼容规则，先更新本文、JSON 样例与实施计划并记录原因，再变更调用方。完成条件对应原方案第 6 节；本轮仅检查契约文档与样例一致性，不宣称迁移、HTTP 行为或真实 vault 已验收。
+实施中如需改变以上字段、状态码、目录结构或兼容规则，先更新本文、JSON 样例与实施计划并记录原因，再变更调用方。完成条件对应原方案第 6 节；当前图片 API 和 SQLite 迁移的检查记录见实施计划，真实 PostgreSQL、Compose 与 vault 验收仍待执行。
