@@ -20,6 +20,7 @@ export interface ImageAssetList {items:ImageAssetView[];total:number;limit:numbe
 export interface ObsidianExportOptions {includePdf?:boolean;artifactIds?:string[];}
 export type DocumentResource =
   | {type:"pdf_toc";entries:{level:number;title:string;page_index:number}[]}
+  | {type:"printed_toc";entries:{title:string;level:number;printed_page_number:number;toc_page_index:number;body_page_index:number;source_block_id:string;heading_block_id:string;confidence:number}[]}
   | {type:"image";asset_id:string;page_index:number;bbox:ImageBoundingBox};
 export interface ParsedTextBlock {
   schema_version:"1.0";block_id:string;page_index:number;block_index:number;reading_order:number;

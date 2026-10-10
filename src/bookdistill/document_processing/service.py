@@ -702,6 +702,9 @@ class IngestionService:
     def run_structure_stage(self, book_id: UUID, job_id: UUID) -> dict[str, object]:
         document = self._stage_document(book_id, ProcessingStage.STRUCTURE)
         chapters = self.structurer.build(document)
+        structured_document = self.storage.write_json_artifact(
+            book_id, "parsed_document.structured.v1.json", document.model_dump(mode="json")
+        )
         artifact = self.storage.write_json_artifact(
             book_id,
             "chapters.v1.json",
@@ -714,7 +717,11 @@ class IngestionService:
             job_id, stage=ProcessingStage.CHUNK, progress=68,
             completed=["validate", "classify", "parse", "clean", "structure"],
         )
-        return {"chapters_artifact_uri": str(artifact), "chapter_count": len(chapters)}
+        return {
+            "chapters_artifact_uri": str(artifact),
+            "structured_document_artifact_uri": str(structured_document),
+            "chapter_count": len(chapters),
+        }
 
     def run_chunk_stage(
         self,
@@ -821,7 +828,10 @@ class IngestionService:
     def _stage_document(
         self, book_id: UUID, stage: ProcessingStage
     ) -> ParsedDocument:
-        for name in ("parsed_document.cleaned.v1.json", "parsed_document.v1.json"):
+        names = ["parsed_document.cleaned.v1.json", "parsed_document.v1.json"]
+        if stage == ProcessingStage.CHUNK:
+            names.insert(0, "parsed_document.structured.v1.json")
+        for name in names:
             path = self.storage.book_root(book_id) / name
             if path.exists():
                 return ParsedDocument.model_validate(
@@ -861,6 +871,9 @@ class IngestionService:
     ) -> dict[str, object]:
         document_path = self.storage.write_json_artifact(
             book_id, "parsed_document.v1.json", document.model_dump(mode="json")
+        )
+        self.storage.write_json_artifact(
+            book_id, "parsed_document.structured.v1.json", document.model_dump(mode="json")
         )
         chapters_path = self.storage.write_json_artifact(
             book_id,

@@ -1,0 +1,22 @@
+# Isolated local acceptance environment for the text-layer TOC and chunk changes.
+# Use with -p bookdistill-toc-acceptance and --env-file .env.example.
+services:
+  api:
+    ports: !override
+      - "127.0.0.1:18026:8000"
+    environment:
+      BOOKDISTILL_API_KEY: toc-acceptance-key
+      BOOKDISTILL_LLM_PROVIDER: demo
+      BOOKDISTILL_LLM_API_KEY: ""
+      BOOKDISTILL_CORS_ORIGINS: http://127.0.0.1:13026,http://localhost:13026
+  worker:
+    environment:
+      BOOKDISTILL_API_KEY: toc-acceptance-key
+      BOOKDISTILL_LLM_PROVIDER: demo
+      BOOKDISTILL_LLM_API_KEY: ""
+  frontend:
+    ports: !override
+      - "127.0.0.1:13026:3000"
+    build:
+      args:
+        NEXT_PUBLIC_BOOKDISTILL_API_URL: http://127.0.0.1:18026

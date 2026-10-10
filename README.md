@@ -54,6 +54,8 @@ curl.exe -X POST "http://127.0.0.1:8000/api/v1/books" `
 
 Chunk 默认使用 `regex-v1` 中英文确定性 Tokenizer，最大 512 Token、相邻 Chunk 重叠最多 64 Token。可通过 `BOOKDISTILL_CHUNK_MAX_TOKENS` 和 `BOOKDISTILL_CHUNK_OVERLAP_TOKENS` 调整；配置变化会体现在 `chunk_version` 中。
 
+文本层印刷目录现在会在正文标题与页码偏移得到验证后保存为结构资源，并从正文 Chunk 中排除；中文 `一、`、`（一）` 可参与章节层级识别，段落切分优先保留空行和句界。已入库书籍需从 `structure` 阶段全书重建才能应用新规则。方法、验证范围及限制见 [印刷目录与段落切分](docs/printed-toc-and-paragraphs.md)。
+
 当前 PDF 处理全部通过通用任务调度器触发：本地默认 `inline`，部署环境使用 Celery。上传请求只执行流式大小限制、基础 PDF 校验、文件保存和任务登记，不再通过 FastAPI `BackgroundTasks` 执行解析。
 
 文档处理注册为通用任务类型 `document.process`，包含 `parse → clean → structure → chunk → persist → index` 六个持久化阶段。阶段产物原子落盘，失败重试会跳过输入未变化的成功阶段。上传响应中的 `task_id` 用于查询 `/api/v1/jobs/{task_id}`；解析兼容状态通过 `/api/v1/document-jobs/{job_id}` 查询。重新解析和重建接口的请求格式见 `docs/document-operations.md`。

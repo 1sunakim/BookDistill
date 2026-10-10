@@ -81,6 +81,7 @@ class ContentType(str, Enum):
     HEADER = "header"
     FOOTER = "footer"
     PAGE_NUMBER = "page_number"
+    TOC = "toc"
     OTHER = "other"
 
 
@@ -125,6 +126,22 @@ class PdfTocResource(StrictModel):
     entries: list[PdfTocEntry]
 
 
+class PrintedTocEntry(StrictModel):
+    title: str = Field(min_length=1)
+    level: int = Field(ge=1)
+    printed_page_number: int = Field(ge=1)
+    toc_page_index: int = Field(ge=0)
+    body_page_index: int = Field(ge=0)
+    source_block_id: UUID
+    heading_block_id: UUID
+    confidence: float = Field(ge=0, le=1)
+
+
+class PrintedTocResource(StrictModel):
+    type: Literal["printed_toc"] = "printed_toc"
+    entries: list[PrintedTocEntry]
+
+
 class ImageResource(StrictModel):
     type: Literal["image"] = "image"
     asset_id: UUID
@@ -132,7 +149,9 @@ class ImageResource(StrictModel):
     bbox: ImageBoundingBox
 
 
-DocumentResource = Annotated[PdfTocResource | ImageResource, Field(discriminator="type")]
+DocumentResource = Annotated[
+    PdfTocResource | PrintedTocResource | ImageResource, Field(discriminator="type")
+]
 
 
 class TextStyle(StrictModel):

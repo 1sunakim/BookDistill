@@ -136,6 +136,7 @@
         "header",
         "footer",
         "page_number",
+        "toc",
         "other"
       ],
       "title": "ContentType",

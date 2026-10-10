@@ -9,12 +9,17 @@ import re
 from uuid import UUID, uuid5
 
 from bookdistill.contracts import Chapter, ContentType, ParsedDocument, PdfTocResource, TextBlock
+from bookdistill.contracts.document_processing import PrintedTocResource
+
+from .printed_toc import detect_printed_toc
 
 
 CHAPTER_NAMESPACE = UUID("b7569475-046d-4e04-a95f-b8fbb98d8625")
 NUMBERED_HEADING = re.compile(
     r"^(?:(?P<decimal>\d+(?:\.\d+){0,5})[\s、.)．]+|"
-    r"第(?P<cjk>[一二三四五六七八九十百千万零〇两\d]+)(?P<unit>[编篇部章节])\s*)"
+    r"第(?P<cjk>[一二三四五六七八九十百千万零〇两\d]+)(?P<unit>[编篇部章节])\s*|"
+    r"(?P<cjk_bare>[一二三四五六七八九十百千万零〇两]+)[、.．]\s*|"
+    r"[（(](?P<cjk_paren>[一二三四五六七八九十百千万零〇两]+)[）)]\s*)"
 )
 APPENDIX_HEADING = re.compile(r"^(?:附录|appendix)\s*[A-Z\d一二三四五六七八九十]*", re.I)
 CIRCLED_STEP_MARKER = re.compile(r"^[\u2460-\u2473]")
@@ -29,10 +34,22 @@ class HeadingCandidate:
     confidence: float
     page_index: int
     reading_order: int
+    source: str = "rule"
 
 
 class ChapterStructurer:
     def build(self, document: ParsedDocument) -> list[Chapter]:
+        printed, toc_block_ids = detect_printed_toc(document)
+        document.resources = [
+            resource for resource in document.resources
+            if not isinstance(resource, PrintedTocResource)
+        ]
+        if printed is not None:
+            document.resources.append(printed)
+            for page in document.pages:
+                for block in page.blocks:
+                    if block.block_id in toc_block_ids:
+                        block.content_type = ContentType.TOC
         toc_entries = self._toc_entries(document)
         body_sizes = [
             block.style.font_size
@@ -41,7 +58,7 @@ class ChapterStructurer:
             if block.style
             and block.style.font_size
             and block.content_type
-            not in {ContentType.HEADER, ContentType.FOOTER, ContentType.PAGE_NUMBER}
+            not in {ContentType.HEADER, ContentType.FOOTER, ContentType.PAGE_NUMBER, ContentType.TOC}
         ]
         body_size = median(body_sizes) if body_sizes else 11.0
         candidates: dict[UUID, HeadingCandidate] = {}
@@ -57,7 +74,24 @@ class ChapterStructurer:
                     confidence=min(0.99, 0.72 + 0.25 * similarity),
                     page_index=block.page_index,
                     reading_order=block.reading_order,
+                    source="pdf_toc",
                 )
+
+        if printed is not None:
+            blocks = {
+                block.block_id: block for page in document.pages for block in page.blocks
+            }
+            for entry in printed.entries:
+                block = blocks[entry.heading_block_id]
+                candidate = HeadingCandidate(
+                    block=block, title=block.text, level=entry.level,
+                    confidence=entry.confidence, page_index=block.page_index,
+                    reading_order=block.reading_order,
+                    source="printed_toc",
+                )
+                existing = candidates.get(block.block_id)
+                if existing is None or candidate.confidence > existing.confidence:
+                    candidates[block.block_id] = candidate
 
         for page in document.pages:
             for block in page.blocks:
@@ -65,6 +99,7 @@ class ChapterStructurer:
                     ContentType.HEADER,
                     ContentType.FOOTER,
                     ContentType.PAGE_NUMBER,
+                    ContentType.TOC,
                 }:
                     continue
                 candidate = self._rule_candidate(block, body_size)
@@ -82,6 +117,17 @@ class ChapterStructurer:
             if fallback is None:
                 return []
             ordered = [fallback]
+
+        seen_chapter = False
+        for item in ordered:
+            numbered = NUMBERED_HEADING.match(item.title)
+            if numbered and numbered.group("unit") in {"编", "篇", "部", "章"}:
+                seen_chapter = True
+            if numbered and item.source == "rule" and seen_chapter:
+                if numbered.group("cjk_bare"):
+                    item.level = 2
+                elif numbered.group("cjk_paren"):
+                    item.level = 3
 
         chapter_ids = [
             uuid5(
@@ -174,6 +220,10 @@ class ChapterStructurer:
             return {"编": 1, "篇": 1, "部": 1, "章": 1, "节": 2}.get(
                 match.group("unit"), 1
             )
+        if match and match.group("cjk_bare"):
+            return 1
+        if match and match.group("cjk_paren"):
+            return 2
         if APPENDIX_HEADING.match(title):
             return 1
         return 1
@@ -199,6 +249,7 @@ class ChapterStructurer:
                     ContentType.HEADER,
                     ContentType.FOOTER,
                     ContentType.PAGE_NUMBER,
+                    ContentType.TOC,
                 }:
                     continue
                 score = SequenceMatcher(
@@ -216,6 +267,7 @@ class ChapterStructurer:
                     ContentType.HEADER,
                     ContentType.FOOTER,
                     ContentType.PAGE_NUMBER,
+                    ContentType.TOC,
                 }:
                     return HeadingCandidate(
                         block=block,

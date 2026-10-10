@@ -13,6 +13,8 @@ from bookdistill.contracts import Chapter, Chunk, ContentType, ParsedDocument, T
 
 CHUNK_NAMESPACE = UUID("2ad9876d-4411-4144-b853-a992fe8423d1")
 TOKEN_PATTERN = re.compile(r"[\u3400-\u9fff]|[A-Za-z0-9_]+|[^\s]", re.UNICODE)
+PARAGRAPH_BREAK = re.compile(r"\n\s*\n+")
+SENTENCE = re.compile(r"[^。！？!?；;]+[。！？!?；;]*\s*", re.UNICODE)
 
 
 class Tokenizer(Protocol):
@@ -93,7 +95,7 @@ class ChapterAwareChunker:
         self.overlap_tokens = overlap_tokens
         self.tokenizer = tokenizer or RegexTokenizer()
         self.chunk_version = (
-            f"chapter-aware-v1:max{maximum_tokens}:overlap{overlap_tokens}:"
+            f"chapter-aware-v2:max{maximum_tokens}:overlap{overlap_tokens}:"
             f"{self.tokenizer.name}"
         )
 
@@ -112,6 +114,7 @@ class ChapterAwareChunker:
                     ContentType.HEADER,
                     ContentType.FOOTER,
                     ContentType.PAGE_NUMBER,
+                    ContentType.TOC,
                 }:
                     continue
                 position = (page.page_index, block.reading_order)
@@ -134,7 +137,7 @@ class ChapterAwareChunker:
                     )
                 )
 
-        chunk_ids = [self._chunk_id(draft) for draft in drafts]
+        chunk_ids = [self._chunk_id(draft, index) for index, draft in enumerate(drafts)]
         return [
             Chunk(
                 chunk_id=chunk_id,
@@ -157,14 +160,43 @@ class ChapterAwareChunker:
         ]
 
     def _units_from_block(self, block: TextBlock) -> list[TextUnit]:
-        if self.tokenizer.count(block.text) <= self.maximum_tokens:
-            return [self._unit(block, block.text, block.raw_text)]
-        return [
-            self._unit(block, segment, segment)
-            for segment in self.tokenizer.split(
-                block.text, self.maximum_tokens, self.overlap_tokens
-            )
-        ]
+        paragraphs = [part.strip() for part in PARAGRAPH_BREAK.split(block.text) if part.strip()]
+        raw_paragraphs = [part.strip() for part in PARAGRAPH_BREAK.split(block.raw_text) if part.strip()]
+        units: list[TextUnit] = []
+        for index, paragraph in enumerate(paragraphs):
+            raw = raw_paragraphs[index] if len(raw_paragraphs) == len(paragraphs) else paragraph
+            if self.tokenizer.count(paragraph) <= self.maximum_tokens:
+                units.append(self._unit(block, paragraph, raw))
+            else:
+                units.extend(
+                    self._unit(block, segment, segment)
+                    for segment in self._split_long_paragraph(paragraph)
+                )
+        return units
+
+    def _split_long_paragraph(self, text: str) -> list[str]:
+        """Prefer sentence endings; fall back to token windows for long sentences."""
+        sentences = [match.group().strip() for match in SENTENCE.finditer(text) if match.group().strip()]
+        if len(sentences) < 2:
+            return self.tokenizer.split(text, self.maximum_tokens, self.overlap_tokens)
+        segments: list[str] = []
+        current = ""
+        for sentence in sentences:
+            if self.tokenizer.count(sentence) > self.maximum_tokens:
+                if current:
+                    segments.append(current)
+                    current = ""
+                segments.extend(self.tokenizer.split(sentence, self.maximum_tokens, self.overlap_tokens))
+                continue
+            proposed = f"{current} {sentence}".strip()
+            if current and self.tokenizer.count(proposed) > self.maximum_tokens:
+                segments.append(current)
+                current = sentence
+            else:
+                current = proposed
+        if current:
+            segments.append(current)
+        return segments
 
     @staticmethod
     def _unit(block: TextBlock, text: str, raw_text: str) -> TextUnit:
@@ -225,11 +257,11 @@ class ChapterAwareChunker:
             checksum=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         )
 
-    def _chunk_id(self, draft: ChunkDraft) -> UUID:
+    def _chunk_id(self, draft: ChunkDraft, order_index: int) -> UUID:
         sources = ",".join(str(item) for item in draft.source_block_ids)
         identity = (
             f"{draft.chapter.book_id}:{draft.chapter.chapter_id}:{self.chunk_version}:"
-            f"{draft.page_start}:{draft.page_end}:{sources}:{draft.checksum}"
+            f"{order_index}:{draft.page_start}:{draft.page_end}:{sources}:{draft.checksum}"
         )
         return uuid5(CHUNK_NAMESPACE, identity)
 

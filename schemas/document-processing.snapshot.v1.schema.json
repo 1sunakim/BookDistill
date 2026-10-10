@@ -390,6 +390,7 @@
         "header",
         "footer",
         "page_number",
+        "toc",
         "other"
       ],
       "title": "ContentType",
@@ -693,13 +694,17 @@
             "discriminator": {
               "mapping": {
                 "image": "#/$defs/ImageResource",
-                "pdf_toc": "#/$defs/PdfTocResource"
+                "pdf_toc": "#/$defs/PdfTocResource",
+                "printed_toc": "#/$defs/PrintedTocResource"
               },
               "propertyName": "type"
             },
             "oneOf": [
               {
                 "$ref": "#/$defs/PdfTocResource"
+              },
+              {
+                "$ref": "#/$defs/PrintedTocResource"
               },
               {
                 "$ref": "#/$defs/ImageResource"
@@ -889,6 +894,87 @@
         "entries"
       ],
       "title": "PdfTocResource",
+      "type": "object"
+    },
+    "PrintedTocEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "level": {
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "printed_page_number": {
+          "minimum": 1,
+          "title": "Printed Page Number",
+          "type": "integer"
+        },
+        "toc_page_index": {
+          "minimum": 0,
+          "title": "Toc Page Index",
+          "type": "integer"
+        },
+        "body_page_index": {
+          "minimum": 0,
+          "title": "Body Page Index",
+          "type": "integer"
+        },
+        "source_block_id": {
+          "format": "uuid",
+          "title": "Source Block Id",
+          "type": "string"
+        },
+        "heading_block_id": {
+          "format": "uuid",
+          "title": "Heading Block Id",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "title",
+        "level",
+        "printed_page_number",
+        "toc_page_index",
+        "body_page_index",
+        "source_block_id",
+        "heading_block_id",
+        "confidence"
+      ],
+      "title": "PrintedTocEntry",
+      "type": "object"
+    },
+    "PrintedTocResource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "printed_toc",
+          "default": "printed_toc",
+          "title": "Type",
+          "type": "string"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/PrintedTocEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "title": "PrintedTocResource",
       "type": "object"
     },
     "ProcessingStage": {
