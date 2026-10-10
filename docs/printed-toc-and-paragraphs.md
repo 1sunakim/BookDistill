@@ -34,6 +34,6 @@ docker compose --env-file .env.example -p bookdistill-toc-acceptance -f compose.
 docker compose --env-file .env.example -p bookdistill-toc-acceptance -f compose.yml -f compose.toc-acceptance.yml ps
 ```
 
-浏览器打开 `http://127.0.0.1:13026/`，点击“配置 Key 与模型”，填写后端访问 Key `toc-acceptance-key`；API 地址为 `http://127.0.0.1:18026`。上传带文本层及印刷目录的 PDF 后，在书籍页查看章节与正文；如需检查原始结构，可访问 `GET /api/v1/books/{book_id}/parsed-document`、`/chapters` 和 `/chunks`，请求头带 `X-BookDistill-API-Key: toc-acceptance-key`。本地演示模型只用于流程验收，不代表真实模型回答质量。
+浏览器打开 `http://127.0.0.1:13026/`，点击“配置 Key 与模型”。后端访问 Key 在这个仅绑定本机的验收环境中预填为 `toc-acceptance-key`，可手动显示或隐藏；API 地址为 `http://127.0.0.1:18026`。模型 API Key 输入框也可显示或隐藏当前输入值；已保存的模型密钥不会从后端回传。上传带文本层及印刷目录的 PDF 后，在书籍页查看章节与正文；如需检查原始结构，可访问 `GET /api/v1/books/{book_id}/parsed-document`、`/chapters` 和 `/chunks`，请求头带 `X-BookDistill-API-Key: toc-acceptance-key`。本地演示模型只用于流程验收，不代表真实模型回答质量。
 
 本次部署验收：健康检查 200；英文目录样本得到 2 个章节、2 个 Chunk，目录点线未进入 Chunk；从 `structure` 阶段重建成功且结果一致。中文 `一、`、`（一）` 样本得到 1、2 级章节，目录标记为 `toc`，未进入正文 Chunk。仅通过 PDF 文本层测试，尚需使用目标书籍人工复核复杂排版与章节边界。

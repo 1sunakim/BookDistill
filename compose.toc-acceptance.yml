@@ -20,3 +20,4 @@ services:
     build:
       args:
         NEXT_PUBLIC_BOOKDISTILL_API_URL: http://127.0.0.1:18026
+        NEXT_PUBLIC_BOOKDISTILL_DEFAULT_API_KEY: toc-acceptance-key

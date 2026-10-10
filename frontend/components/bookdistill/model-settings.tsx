@@ -3,14 +3,18 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Check, KeyRound, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { bookDistillApi, hasApiKey, setApiKey, verifyApiKey, type ModelConfiguration, type ModelProfile, type ModelProfileInput } from "@/lib/bookdistill-api";
+import { bookDistillApi, getApiKey, hasApiKey, setApiKey, verifyApiKey, type ModelConfiguration, type ModelProfile, type ModelProfileInput } from "@/lib/bookdistill-api";
 import { initialModelProfile as initial, modelPresets as presets } from "@/lib/model-presets";
+import { SecretInput } from "./secret-input";
+
+const defaultAccessKey=process.env.NEXT_PUBLIC_BOOKDISTILL_DEFAULT_API_KEY ?? "";
 
 export function ModelSettings(){
   const [configuration,setConfiguration]=useState<ModelConfiguration|null>(null);
   const [form,setForm]=useState<ModelProfileInput>(()=>initial());
-  const [accessKey,setAccessKey]=useState("");
+  const [accessKey,setAccessKey]=useState<string|null>(null);
   const [accessKeyConfigured,setAccessKeyConfigured]=useState(()=>hasApiKey());
+  const displayedAccessKey=accessKey??(getApiKey()||defaultAccessKey);
   const [importText,setImportText]=useState("");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
@@ -34,13 +38,13 @@ export function ModelSettings(){
     document.getElementById("model-profile-form")?.scrollIntoView({behavior:"smooth",block:"start"});
   };
   const connect=async()=>{
-    if(!accessKey.trim())return;
+    if(!displayedAccessKey.trim())return;
     setBusy(true);setError(null);setNotice(null);
     try{
-      await verifyApiKey(accessKey);
-      setApiKey(accessKey);
+      await verifyApiKey(displayedAccessKey);
+      setApiKey(displayedAccessKey);
       setAccessKeyConfigured(true);
-      setAccessKey("");
+      setAccessKey(null);
       await load();
       setNotice("后端访问 Key 已验证，可以查看和编辑已有模型。密钥只保存在当前浏览器会话。")
     }catch(cause){setError(cause instanceof Error?cause.message:"后端访问 Key 验证失败。")}
@@ -49,11 +53,11 @@ export function ModelSettings(){
   const save=async(event:FormEvent)=>{
     event.preventDefault();setBusy(true);setError(null);setNotice(null);
     try{
-      if(accessKey.trim()){
-        await verifyApiKey(accessKey);
-        setApiKey(accessKey);
+      if(displayedAccessKey.trim()){
+        await verifyApiKey(displayedAccessKey);
+        setApiKey(displayedAccessKey);
         setAccessKeyConfigured(true);
-        setAccessKey("");
+        setAccessKey(null);
       }
       if(!hasApiKey())throw new Error("请先填写后端访问 Key（BOOKDISTILL_API_KEY）。");
       const profile=await bookDistillApi.saveModelProfile({...form,name:form.name.trim(),model:form.model.trim(),base_url:form.base_url.trim()});
@@ -96,9 +100,9 @@ export function ModelSettings(){
       <section className="h-fit rounded-2xl border bg-white p-5"><div className="flex items-center justify-between"><h3 className="font-semibold">已保存模型</h3><Button type="button" variant="outline" size="sm" onClick={()=>void load()}><RefreshCw className="size-4"/>刷新</Button></div><p className="mt-2 text-xs text-muted-foreground">服务器 .env 配置始终可切回。新建档案保存后自动启用。</p><div className="mt-4 space-y-3">{configuration?.profiles.map(profile=><div key={profile.profile_id} className={`rounded-xl border p-4 ${configuration.active_profile_id===profile.profile_id?"border-primary bg-primary/5":""}`}><div className="flex items-start justify-between gap-3"><div><p className="font-medium">{profile.name}</p><p className="mt-1 break-all text-xs text-muted-foreground">{profile.model} · {profile.base_url}</p><p className="mt-1 text-xs text-muted-foreground">{profile.has_api_key?"密钥已保存":"无密钥"} · {profile.response_format}</p></div>{configuration.active_profile_id===profile.profile_id&&<span className="shrink-0 rounded-full bg-primary px-2 py-1 text-xs text-white">使用中</span>}</div><div className="mt-3 flex flex-wrap gap-2">{configuration.active_profile_id!==profile.profile_id&&<Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void activate(profile)}><Check className="size-3"/>启用</Button>}{profile.profile_id!=="environment"&&<><Button type="button" size="sm" variant="outline" onClick={()=>edit(profile)}>编辑</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void remove(profile)}><Trash2 className="size-3"/>删除</Button></>}</div></div>)}</div></section>
       <section id="model-profile-form" className="rounded-2xl border bg-white p-5"><div className="flex items-center justify-between"><h3 className="font-semibold">{form.profile_id?"编辑模型档案":"导入模型"}</h3><Button type="button" variant="outline" size="sm" onClick={()=>{setForm(initial());setError(null)}}><Plus className="size-4"/>新建</Button></div><p className="mt-2 text-xs leading-5 text-muted-foreground">支持 OpenAI 兼容的 Chat Completions 接口。预设仅填写建议值，模型名、地址和响应格式均可修改。</p>
         <form onSubmit={event=>void save(event)} className="mt-5 space-y-4">
-          <div><label htmlFor="model-config-access-key" className="mb-2 block text-sm font-medium">后端访问 Key（BOOKDISTILL_API_KEY）</label><div className="flex gap-2"><input id="model-config-access-key" className="field min-w-0 flex-1" type="password" autoComplete="off" value={accessKey} onChange={e=>setAccessKey(e.target.value)} placeholder={accessKeyConfigured?"本次会话已设置；留空继续使用或输入新值":"输入服务器 .env 中的后端访问 Key"}/><Button type="button" variant="outline" disabled={busy||!accessKey.trim()} onClick={()=>void connect()}>连接并读取</Button></div><p className="mt-1 text-xs text-muted-foreground">可直接随模型一起保存；如需编辑已有模型，先点击“连接并读取”。此 Key 仅保存在当前浏览器会话。</p></div>
+          <div><label htmlFor="model-config-access-key" className="mb-2 block text-sm font-medium">后端访问 Key（BOOKDISTILL_API_KEY）</label><div className="flex gap-2"><div className="min-w-0 flex-1"><SecretInput id="model-config-access-key" label="后端访问 Key" autoComplete="off" value={displayedAccessKey} onChange={e=>setAccessKey(e.target.value)} placeholder={accessKeyConfigured?"本次会话已设置；留空继续使用或输入新值":"输入服务器 .env 中的后端访问 Key"}/></div><Button type="button" variant="outline" disabled={busy||!displayedAccessKey.trim()} onClick={()=>void connect()}>连接并读取</Button></div><p className="mt-1 text-xs text-muted-foreground">可直接随模型一起保存；如需编辑已有模型，先点击“连接并读取”。此 Key 仅保存在当前浏览器会话。</p></div>
           <Field label="服务商预设"><select className="field" value={form.provider} onChange={e=>choosePreset(e.target.value)}>{presets.map(preset=><option key={preset.id} value={preset.id}>{preset.label}</option>)}{!selectedPreset&&<option value={form.provider}>{form.provider}</option>}</select></Field>
-          <Field label="模型 API Key"><input className="field" type="password" autoComplete="off" value={form.api_key} onChange={e=>setField("api_key",e.target.value)} placeholder={form.profile_id?"地址不变时可留空，保留已保存的密钥":"输入服务商密钥；本地服务可使用占位值"}/><span className="mt-1 block text-xs text-muted-foreground">更换服务商或调用地址时必须重新填写密钥。</span></Field>
+          <div><label htmlFor="model-config-model-key" className="mb-2 block text-sm font-medium">模型 API Key</label><SecretInput id="model-config-model-key" label="模型 API Key" autoComplete="off" value={form.api_key} onChange={e=>setField("api_key",e.target.value)} placeholder={form.profile_id?"地址不变时可留空，保留已保存的密钥":"输入服务商密钥；本地服务可使用占位值"}/><span className="mt-1 block text-xs text-muted-foreground">更换服务商或调用地址时必须重新填写密钥。</span></div>
           <Field label="配置名称"><input className="field" required maxLength={100} value={form.name} onChange={e=>setField("name",e.target.value)} placeholder="例如：工作用 DeepSeek"/></Field>
           <Field label="模型名称"><input className="field" required list="model-name-suggestions" value={form.model} onChange={e=>setField("model",e.target.value)} placeholder="输入服务商提供的模型 ID"/><datalist id="model-name-suggestions">{selectedPreset?.models.map(model=><option key={model} value={model}/>)}</datalist></Field>
           <Field label="模型调用地址（Base URL）"><input className="field" required type="url" value={form.base_url} onChange={e=>setField("base_url",e.target.value)} placeholder="https://example.com/v1"/></Field>

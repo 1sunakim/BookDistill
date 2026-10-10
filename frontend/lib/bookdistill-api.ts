@@ -29,7 +29,8 @@ export function getApiBase():string {
 export const CONNECTION_CHANGE_EVENT="bookdistill:connection-change";
 export function setApiBase(value:string) { if(typeof window!=="undefined") {window.localStorage.setItem("bookdistill.apiBase",value.trim().replace(/\/$/,""));window.dispatchEvent(new Event(CONNECTION_CHANGE_EVENT));} }
 
-export function hasApiKey():boolean { return typeof window!=="undefined" && Boolean(window.sessionStorage.getItem("bookdistill.apiKey")); }
+export function getApiKey():string { return typeof window!=="undefined"?window.sessionStorage.getItem("bookdistill.apiKey")??"":""; }
+export function hasApiKey():boolean { return Boolean(getApiKey()); }
 export function setApiKey(value:string) { if(typeof window!=="undefined") { if(value.trim()) window.sessionStorage.setItem("bookdistill.apiKey",value.trim()); else window.sessionStorage.removeItem("bookdistill.apiKey");window.dispatchEvent(new Event(CONNECTION_CHANGE_EVENT)); } }
 
 export async function verifyApiKey(value:string):Promise<void> {
