@@ -6,6 +6,14 @@
 
 ## 本地运行
 
+本分支的完整本机验收环境推荐使用 Docker Desktop。在项目根目录运行：
+
+```powershell
+.\scripts\local-acceptance.ps1
+```
+
+脚本会构建并启动独立容器，等待前端、API 与依赖服务全部就绪后打印访问地址；再次运行可更新本地代码。不改代码时可加 `-NoBuild` 快速启动；查看状态用 `-Action Status`，停止用 `-Action Stop`（保留数据卷）。默认前端为 `http://127.0.0.1:13026/`，后端访问 Key 为 `toc-acceptance-key`。详见 [印刷目录与段落切分验收说明](docs/printed-toc-and-paragraphs.md)。
+
 安装项目依赖后，在项目根目录执行：
 
 ```powershell
