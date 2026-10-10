@@ -15,6 +15,10 @@ from bookdistill.contracts.document_processing import (
 
 
 TOC_TITLE = re.compile(r"^(?:目\s*录|目\s*次|contents|table\s+of\s+contents)$", re.I)
+TOC_END_TITLE = re.compile(
+    r"^(?:表格清单|插图清单|图表清单|表目录|图目录|list\s+of\s+(?:tables|figures))(?=[\s：:]|$)",
+    re.I,
+)
 ENTRY = re.compile(
     r"^(?P<title>.{2,100}?)(?:\s*[.·…⋯_]{2,}\s*|\s+)(?P<page>\d{1,4})\s*$"
 )
@@ -83,10 +87,14 @@ def detect_printed_toc(document: ParsedDocument) -> tuple[PrintedTocResource | N
         last_toc_page = start
         for page in pages[start:min(len(pages), start + 20)]:
             found_on_page = 0
+            reached_other_list = False
             for block in page.blocks:
                 if block.content_type in {ContentType.HEADER, ContentType.FOOTER, ContentType.PAGE_NUMBER}:
                     continue
                 lines = [line.strip() for line in block.text.splitlines() if line.strip()]
+                if lines and TOC_END_TITLE.match(lines[0]):
+                    reached_other_list = True
+                    break
                 matches = [match for line in lines if (match := _entry_match(line)) is not None]
                 if not matches and len(lines) > 1:
                     combined = " ".join(line for line in lines if not TOC_TITLE.fullmatch(line))
@@ -103,6 +111,8 @@ def detect_printed_toc(document: ParsedDocument) -> tuple[PrintedTocResource | N
                 break
             if found_on_page:
                 last_toc_page = page.page_index
+            if reached_other_list:
+                break
         if len(entries) < 2:
             continue
 

@@ -25,7 +25,7 @@ def build_document_service(
         PdfValidator(),
         PyMuPDFParser(settings.minimum_text_characters_per_page),
         DocumentCleaner(),
-        ChapterStructurer(),
+        ChapterStructurer(settings.min_section_characters),
         ChapterAwareChunker(
             maximum_tokens=settings.chunk_max_tokens,
             overlap_tokens=settings.chunk_overlap_tokens,

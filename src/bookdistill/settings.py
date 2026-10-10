@@ -26,6 +26,7 @@ class Settings:
     minimum_text_characters_per_page: int = 10
     chunk_max_tokens: int = 512
     chunk_overlap_tokens: int = 64
+    min_section_characters: int = 80
     dense_backend: str = "memory"
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "bookdistill_chunks"
@@ -65,6 +66,10 @@ class Settings:
     )
 
     def __post_init__(self) -> None:
+        if (isinstance(self.min_section_characters, bool)
+                or not isinstance(self.min_section_characters, int)
+                or self.min_section_characters < 0):
+            raise ValueError("min_section_characters must be a non-negative integer")
         for name in ("image_max_upload_bytes", "image_max_pixels", "image_max_dimension"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -106,6 +111,7 @@ class Settings:
             chunk_overlap_tokens=int(
                 os.getenv("BOOKDISTILL_CHUNK_OVERLAP_TOKENS", "64")
             ),
+            min_section_characters=int(os.getenv("BOOKDISTILL_MIN_SECTION_CHARS", "80")),
             dense_backend=os.getenv("BOOKDISTILL_DENSE_BACKEND", "memory"),
             qdrant_url=os.getenv("BOOKDISTILL_QDRANT_URL", "http://localhost:6333").rstrip("/"),
             qdrant_collection=os.getenv(

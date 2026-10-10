@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from bisect import bisect_left, bisect_right
 from difflib import SequenceMatcher
 from statistics import median
 import re
@@ -38,8 +39,19 @@ class HeadingCandidate:
 
 
 class ChapterStructurer:
+    def __init__(self, min_section_characters: int = 80) -> None:
+        if isinstance(min_section_characters, bool) or not isinstance(min_section_characters, int) or min_section_characters < 0:
+            raise ValueError("min_section_characters must be non-negative")
+        self.min_section_characters = min_section_characters
+
     def build(self, document: ParsedDocument) -> list[Chapter]:
         printed, toc_block_ids = detect_printed_toc(document)
+        # Rebuilds may receive an already structured document. Re-evaluate its
+        # old heading labels so rejected list items return to body text.
+        for page in document.pages:
+            for block in page.blocks:
+                if block.content_type == ContentType.HEADING:
+                    block.content_type = ContentType.PARAGRAPH
         document.resources = [
             resource for resource in document.resources
             if not isinstance(resource, PrintedTocResource)
@@ -129,6 +141,8 @@ class ChapterStructurer:
                 elif numbered.group("cjk_paren"):
                     item.level = 3
 
+        ordered = self._merge_short_rule_sections(document, ordered)
+
         chapter_ids = [
             uuid5(
                 CHAPTER_NAMESPACE,
@@ -173,6 +187,39 @@ class ChapterStructurer:
             )
         return chapters
 
+    def _merge_short_rule_sections(
+        self, document: ParsedDocument, ordered: list[HeadingCandidate]
+    ) -> list[HeadingCandidate]:
+        """Keep short numbered prose under the preceding chapter instead of creating an empty one."""
+        if self.min_section_characters == 0 or len(ordered) < 2:
+            return ordered
+        blocks = sorted((
+            block for page in document.pages for block in page.blocks
+            if block.content_type not in {
+                ContentType.HEADER, ContentType.FOOTER, ContentType.PAGE_NUMBER, ContentType.TOC,
+            }
+        ), key=lambda block: (block.page_index, block.reading_order))
+        positions = [(block.page_index, block.reading_order) for block in blocks]
+        lengths = [0]
+        for block in blocks:
+            lengths.append(lengths[-1] + len(re.sub(r"\s+", "", block.text)))
+        kept: list[HeadingCandidate] = []
+        for index, item in enumerate(ordered):
+            if index and item.source == "rule":
+                next_item = ordered[index + 1] if index + 1 < len(ordered) else None
+                if next_item is None or next_item.level <= item.level:
+                    start = (item.page_index, item.reading_order)
+                    end = (
+                        (next_item.page_index, next_item.reading_order)
+                        if next_item else (document.pages[-1].page_index + 1, 0)
+                    )
+                    length = lengths[bisect_left(positions, end)] - lengths[bisect_right(positions, start)]
+                    if length < self.min_section_characters:
+                        item.block.content_type = ContentType.PARAGRAPH
+                        continue
+            kept.append(item)
+        return kept
+
     def _rule_candidate(self, block: TextBlock, body_size: float) -> HeadingCandidate | None:
         title = block.text.strip()
         if not title or len(title) > 160 or "\n" in title and len(title.splitlines()) > 2:
@@ -189,8 +236,14 @@ class ChapterStructurer:
         numbered = NUMBERED_HEADING.match(title)
         appendix = APPENDIX_HEADING.match(title)
         font_size = block.style.font_size if block.style else None
-        large_font = bool(font_size and font_size >= body_size * 1.25)
+        relative_size = 1.12 if numbered and numbered.group("cjk_paren") else 1.25
+        large_font = bool(font_size and font_size >= body_size * relative_size)
         bold = bool(block.style and block.style.bold)
+
+        # A bold, body-sized "1." line is usually a list item rather than a section.
+        # Multi-part decimal headings may still be recognized by stronger evidence.
+        if numbered and numbered.group("decimal") and "." not in numbered.group("decimal") and not large_font:
+            return None
 
         confidence = 0.0
         if numbered or appendix:

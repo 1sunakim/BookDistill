@@ -12,6 +12,7 @@ import pymupdf
 from fastapi.testclient import TestClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from bookdistill.contracts import BoundingBox, Page, ParsedDocument, TextBlock  # noqa: E402
@@ -88,7 +89,7 @@ class PrintedTocTests(unittest.TestCase):
             [block(0, 0, "一、正文标题", 16, True), block(0, 1, "普通正文。")],
             [block(1, 0, "（一）下级标题", 16, True), block(1, 1, "更多正文。")],
         ])
-        chapters = ChapterStructurer().build(source)
+        chapters = ChapterStructurer(min_section_characters=0).build(source)
         self.assertEqual([chapter.level for chapter in chapters], [1, 2])
 
     def test_chinese_numbering_nests_under_preceding_chapter(self) -> None:
@@ -97,9 +98,68 @@ class PrintedTocTests(unittest.TestCase):
             [block(1, 0, "一、研究背景", 16, True), block(1, 1, "背景正文。")],
             [block(2, 0, "（一）研究范围", 16, True), block(2, 1, "范围正文。")],
         ])
-        chapters = ChapterStructurer().build(source)
+        chapters = ChapterStructurer(min_section_characters=0).build(source)
         self.assertEqual([chapter.level for chapter in chapters], [1, 2, 3])
         self.assertEqual(chapters[2].parent_id, chapters[1].chapter_id)
+
+    def test_table_list_ends_printed_toc_and_preserves_small_sections(self) -> None:
+        source = document([
+            [block(0, 0, "目录", 18), block(0, 1, "一、总论……1"),
+             block(0, 2, "（一）背景……1"), block(0, 3, "（二）范围……2")],
+            [block(1, 0, "表格清单\n表 1 数据概览……2\n表 2 参数设置……3")],
+            [block(2, 0, "一、总论", 15), block(2, 1, "（一）背景", 14),
+             block(2, 2, "背景正文。" * 25)],
+            [block(3, 0, "（二）范围", 14), block(3, 1, "范围正文。" * 25)],
+        ])
+        chapters = ChapterStructurer().build(source)
+        self.assertEqual([chapter.title for chapter in chapters],
+                         ["一、总论", "（一）背景", "（二）范围"])
+        self.assertEqual([chapter.level for chapter in chapters], [1, 2, 2])
+        printed = next(resource for resource in source.resources
+                       if isinstance(resource, PrintedTocResource))
+        self.assertEqual(len(printed.entries), 3)
+        self.assertEqual(source.pages[0].blocks[1].content_type, "toc")
+        self.assertEqual(source.pages[1].blocks[0].content_type, "paragraph")
+
+    def test_body_sized_numbered_list_stays_in_previous_chapter(self) -> None:
+        source = document([[
+            block(0, 0, "一、研究方法", 16), block(0, 1, "方法概述。" * 20),
+            block(0, 2, "1. 数据收集", 12, True), block(0, 3, "收集资料。" * 15),
+            block(0, 4, "2. 数据清洗", 12, True), block(0, 5, "清洗资料。" * 15),
+        ]])
+        chapters = ChapterStructurer().build(source)
+        self.assertEqual([chapter.title for chapter in chapters], ["一、研究方法"])
+        self.assertEqual(source.pages[0].blocks[2].content_type, "paragraph")
+        chunks = ChapterAwareChunker().chunk(source, chapters)
+        self.assertIn("1. 数据收集", " ".join(chunk.text for chunk in chunks))
+
+    def test_short_rule_section_merges_into_previous_chapter(self) -> None:
+        source = document([[
+            block(0, 0, "一、总论", 18), block(0, 1, "总论正文。" * 20),
+            block(0, 2, "（一）短标题", 16), block(0, 3, "很短。"),
+            block(0, 4, "二、后续", 18), block(0, 5, "后续正文。" * 20),
+        ]])
+        chapters = ChapterStructurer(min_section_characters=80).build(source)
+        self.assertEqual([chapter.title for chapter in chapters], ["一、总论", "二、后续"])
+        self.assertEqual(source.pages[0].blocks[2].content_type, "paragraph")
+        chunks = ChapterAwareChunker().chunk(source, chapters)
+        first_text = " ".join(chunk.text for chunk in chunks if chunk.chapter_id == chapters[0].chapter_id)
+        self.assertIn("（一）短标题", first_text)
+        self.assertIn("很短。", first_text)
+
+    def test_consecutive_short_rule_sections_merge_into_previous_chapter(self) -> None:
+        source = document([[
+            block(0, 0, "一、总论", 18), block(0, 1, "总论正文。" * 20),
+            block(0, 2, "（一）短标题甲", 16), block(0, 3, "甲段。" * 12),
+            block(0, 4, "（二）短标题乙", 16), block(0, 5, "乙段。" * 12),
+            block(0, 6, "二、后续", 18), block(0, 7, "后续正文。" * 20),
+        ]])
+        chapters = ChapterStructurer(min_section_characters=80).build(source)
+        self.assertEqual([chapter.title for chapter in chapters], ["一、总论", "二、后续"])
+        chunks = ChapterAwareChunker().chunk(source, chapters)
+        first_text = " ".join(chunk.text for chunk in chunks if chunk.chapter_id == chapters[0].chapter_id)
+        self.assertIn("（一）短标题甲", first_text)
+        self.assertIn("（二）短标题乙", first_text)
 
     def test_blank_line_paragraphs_and_sentence_breaks(self) -> None:
         source = document([[
@@ -148,7 +208,11 @@ class PrintedTocPipelineTests(unittest.TestCase):
                     )
                     self.assertEqual(uploaded.status_code, 202, uploaded.text)
                     book_id = uploaded.json()["book_id"]
-                    self.assertEqual(client.get(f"/api/v1/books/{book_id}").json()["status"], "ready")
+                    self.assertEqual(
+                        client.get(f"/api/v1/books/{book_id}").json()["status"],
+                        "ready",
+                        client.get(f"/api/v1/document-jobs/{uploaded.json()['job_id']}").json(),
+                    )
                     parsed = client.get(f"/api/v1/books/{book_id}/parsed-document").json()
                     self.assertTrue(any(resource["type"] == "printed_toc" for resource in parsed["resources"]))
                     self.assertEqual(parsed["pages"][0]["blocks"][1]["content_type"], "toc")

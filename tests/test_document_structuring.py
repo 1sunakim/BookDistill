@@ -103,7 +103,7 @@ class DocumentStructuringTests(unittest.TestCase):
             created_at=datetime.now(UTC),
         )
 
-        chapters = ChapterStructurer().build(document)
+        chapters = ChapterStructurer(min_section_characters=0).build(document)
         self.assertEqual(len(chapters), 2)
         self.assertEqual(chapters[0].level, 1)
         self.assertEqual(chapters[1].level, 2)
