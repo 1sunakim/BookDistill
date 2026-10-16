@@ -12,6 +12,7 @@ from bookdistill.task_system.exceptions import JobExecutionError
 from bookdistill.task_system.handlers import JobContext
 
 from .service import IngestionService
+from .text_service import TextBookService
 from .exceptions import DocumentProcessingError
 
 
@@ -22,11 +23,15 @@ class DocumentProcessingJobHandler:
     job_type = "document.process"
     stages = ("parse", "clean", "structure", "chunk", "persist", "index")
 
-    def __init__(self, service: IngestionService, index_book: IndexBook) -> None:
+    def __init__(self, service: IngestionService, index_book: IndexBook, text_service: TextBookService | None = None) -> None:
         self.service = service
         self.index_book = index_book
+        self.text_service = text_service
 
     def on_cancel(self, input_reference: dict[str, Any]) -> None:
+        if input_reference.get("format") in {"txt", "md", "epub", "docx"} and self.text_service is not None:
+            self.text_service.mark_cancelled(UUID(str(input_reference["book_id"])))
+            return
         legacy_job_id = input_reference.get("legacy_job_id")
         if legacy_job_id:
             self.service.cancel_durable_job(UUID(str(legacy_job_id)))
@@ -37,6 +42,8 @@ class DocumentProcessingJobHandler:
         context: JobContext,
         previous_output: dict[str, Any],
     ) -> dict[str, Any]:
+        if context.input_reference.get("format") in {"txt", "md", "epub", "docx"}:
+            return self._run_text_stage(stage_name, context, previous_output)
         try:
             book_id = UUID(str(context.input_reference["book_id"]))
             legacy_job_id = UUID(str(context.input_reference["legacy_job_id"]))
@@ -117,5 +124,39 @@ class DocumentProcessingJobHandler:
             self.service.record_durable_failure(legacy_job_id, error, processing_stage)
             raise RetryableJobError(
                 "DOCUMENT_STAGE_FAILED", f"Document stage {stage_name} failed.",
+                {"stage": stage_name, "exception_type": type(error).__name__},
+            ) from error
+
+    def _run_text_stage(
+        self, stage_name: str, context: JobContext, previous_output: dict[str, Any]
+    ) -> dict[str, Any]:
+        try:
+            book_id = UUID(str(context.input_reference["book_id"]))
+            format_name = str(context.input_reference["format"])
+            from_stage = str(context.input_reference.get("from_stage", "parse"))
+        except (KeyError, TypeError, ValueError) as error:
+            raise PermanentJobError("DOCUMENT_JOB_INPUT_INVALID", "Text document job input is invalid.") from error
+        if from_stage not in self.stages:
+            raise PermanentJobError("DOCUMENT_JOB_INPUT_INVALID", "Text document start stage is invalid.")
+        if self.text_service is None:
+            raise PermanentJobError("TEXT_SERVICE_MISSING", "Text document service is not configured.")
+        book = self.text_service.get_book(book_id)
+        if book is None or book.format != format_name:
+            raise PermanentJobError("BOOK_FORMAT_MISMATCH", "Text book format does not match the task.")
+        if self.stages.index(stage_name) < self.stages.index(from_stage):
+            return {**previous_output, "book_id": str(book_id), "format": format_name,
+                    "from_stage": from_stage}
+        try:
+            output = self.text_service.run_stage(book_id, stage_name)
+            return {**previous_output, **output, "book_id": str(book_id),
+                    "format": format_name, "from_stage": from_stage}
+        except DocumentProcessingError as error:
+            self.text_service.mark_failed(book_id)
+            error_type = RetryableJobError if error.retryable else PermanentJobError
+            raise error_type(error.code, error.message, error.details) from error
+        except Exception as error:
+            self.text_service.mark_failed(book_id)
+            raise RetryableJobError(
+                "TEXT_STAGE_FAILED", f"Text document stage {stage_name} failed.",
                 {"stage": stage_name, "exception_type": type(error).__name__},
             ) from error

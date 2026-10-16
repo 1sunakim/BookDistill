@@ -1,4 +1,4 @@
-import type { Book, Chapter, Chunk, DistillationKind, EvaluationDatasetSummary, EvaluationResult, HealthResponse, ImageAssetList, ImageAssetView, JobList, JobView, ObsidianExportOptions, RetrieveAndAnswerResponse, RetrievalResponse, UploadAccepted } from "./bookdistill-contracts";
+import type { Book, Chapter, Chunk, DistillationKind, EvaluationDatasetSummary, EvaluationResult, HealthResponse, ImageAssetList, ImageAssetView, JobList, JobView, ObsidianExportOptions, RetrieveAndAnswerResponse, RetrievalResponse, SourceSearchResponse, TextBook, TextBookAccepted, TextChapter, TextChunk, UploadAccepted } from "./bookdistill-contracts";
 
 const ENV_API_BASE = process.env.NEXT_PUBLIC_BOOKDISTILL_API_URL?.replace(/\/$/, "") ?? "";
 
@@ -120,6 +120,14 @@ export const bookDistillApi={
     return requestBlob(`/api/v1/exports/obsidian?${query}`,"zip",signal);
   },
   uploadBook:(file:File, metadata:{title?:string;authors?:string;language?:string}={})=>{const form=new FormData();form.set("file",file);if(metadata.title)form.set("title",metadata.title);form.set("authors",metadata.authors??"");form.set("language",metadata.language??"zh-CN");return request<UploadAccepted>("/api/v1/books",{method:"POST",body:form});},
+  listTextBooks:()=>request<TextBook[]>("/api/v2/books"),
+  getTextChapters:(bookId:string,signal?:AbortSignal)=>request<TextChapter[]>(`/api/v2/books/${encodeURIComponent(bookId)}/chapters`,{signal}),
+  getTextChunks:(bookId:string,signal?:AbortSignal)=>request<TextChunk[]>(`/api/v2/books/${encodeURIComponent(bookId)}/chunks`,{signal}),
+  uploadTextBook:(file:File,metadata:{title?:string;authors?:string;language?:string}={})=>{const form=new FormData();form.set("file",file);if(metadata.title)form.set("title",metadata.title);form.set("authors",metadata.authors??"");form.set("language",metadata.language??"zh-CN");return request<TextBookAccepted>("/api/v2/books",{method:"POST",body:form});},
+  searchSourceBooks:(query:string,bookIds:string[],chapterIds:string[]=[])=>request<SourceSearchResponse>("/api/v2/retrieval/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({schema_version:"2.0",request_id:crypto.randomUUID(),query,book_ids:bookIds,chapter_ids:chapterIds})}),
+  reprocessTextBook:(bookId:string,fromStage:"parse"|"index"="parse")=>request<JobView>(`/api/v2/books/${encodeURIComponent(bookId)}/reprocess`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({from_stage:fromStage})}),
+  deleteTextBook:(bookId:string)=>request<void>(`/api/v2/books/${encodeURIComponent(bookId)}`,{method:"DELETE"}),
+  exportSourceObsidian:(bookId:string,includeOriginal=true)=>requestBlob(`/api/v2/exports/obsidian?book_id=${encodeURIComponent(bookId)}&include_original=${includeOriginal}`,"zip"),
   listJobs:(status?:string)=>request<JobList>(`/api/v1/jobs?limit=100${status?`&status=${encodeURIComponent(status)}`:""}`),
   getJob:(jobId:string)=>request<JobView>(`/api/v1/jobs/${jobId}`),
   retryJob:(jobId:string)=>request<JobView>(`/api/v1/jobs/${jobId}/retry`,{method:"POST"}),

@@ -59,10 +59,13 @@ def _write_worker_heartbeat() -> None:
 
 
 def _sync_cancelled_document(repository: JobRepository, job) -> None:
-    """Keep the legacy document projection consistent without loading model adapters."""
+    """Keep document projections consistent without loading model adapters."""
     if job.job_type != "document.process":
         return
     legacy_job_id = job.input_reference.get("legacy_job_id")
+    if job.input_reference.get("format") in {"txt", "md", "epub", "docx"} and not legacy_job_id:
+        _sync_text_document_status(repository, job, "cancelled")
+        return
     if not legacy_job_id:
         return
     now = datetime.now(UTC)
@@ -76,6 +79,19 @@ def _sync_cancelled_document(repository: JobRepository, job) -> None:
         if book is not None:
             book.status = "cancelled"
             book.updated_at = now
+
+
+def _sync_text_document_status(repository: JobRepository, job, status: str) -> None:
+    if job.job_type != "document.process" or job.input_reference.get("format") not in {"txt", "md", "epub", "docx"}:
+        return
+    book_id = job.input_reference.get("book_id")
+    if not book_id:
+        return
+    with repository.session_factory.begin() as session:
+        book = session.get(BookRecord, str(book_id))
+        if book is not None and book.format == job.input_reference["format"]:
+            book.status = status
+            book.updated_at = datetime.now(UTC)
 
 
 @signals.worker_ready.connect
@@ -111,4 +127,6 @@ def recover_stale_jobs() -> dict:
             execute_job.delay(job_id)
         elif job.status == TaskStatus.CANCELLED.value:
             _sync_cancelled_document(repository, job)
+        elif job.status == TaskStatus.FAILED.value:
+            _sync_text_document_status(repository, job, "failed")
     return {"recovered": recovered}

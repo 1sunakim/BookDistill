@@ -33,7 +33,7 @@ class LocalBookStorage:
     def stage(self, source: BinaryIO, chunk_size: int = 1024 * 1024) -> StagedUpload:
         digest = hashlib.sha256()
         total = 0
-        descriptor, temporary_name = tempfile.mkstemp(suffix=".pdf", dir=self.staging_root)
+        descriptor, temporary_name = tempfile.mkstemp(suffix=".upload", dir=self.staging_root)
         temporary_path = Path(temporary_name)
         try:
             with os.fdopen(descriptor, "wb") as destination:
@@ -50,10 +50,12 @@ class LocalBookStorage:
             raise
         return StagedUpload(path=temporary_path, sha256=digest.hexdigest(), size_bytes=total)
 
-    def finalize(self, staged_path: Path, book_id: UUID) -> Path:
+    def finalize(self, staged_path: Path, book_id: UUID, *, extension: str = ".pdf") -> Path:
+        if extension not in {".pdf", ".txt", ".md", ".epub", ".docx"}:
+            raise ValueError("unsupported stored book extension")
         book_root = self.book_root(book_id)
         book_root.mkdir(parents=True, exist_ok=True)
-        destination = book_root / "original.pdf"
+        destination = book_root / f"original{extension}"
         os.replace(staged_path, destination)
         return destination
 
@@ -65,12 +67,21 @@ class LocalBookStorage:
 
     @contextmanager
     def open_original(self, book_id: UUID):
-        """Read an ID-owned PDF without trusting a persisted absolute URI."""
-        expected = self.book_root(UUID(str(book_id))) / "original.pdf"
-        if expected.resolve() != expected:
-            raise ValueError("book storage redirects outside its owned path")
+        """Read an ID-owned original without trusting user filenames or persisted URIs."""
+        expected = self.original_path(book_id)
         with expected.open("rb") as source:
             yield source
+
+    def original_path(self, book_id: UUID) -> Path:
+        """Resolve the single controlled original file for a book ID."""
+        root = self.book_root(UUID(str(book_id)))
+        matches = [root / f"original{extension}" for extension in (".pdf", ".txt", ".md", ".epub", ".docx") if (root / f"original{extension}").is_file()]
+        if len(matches) != 1:
+            raise FileNotFoundError("book has no unique stored original")
+        expected = matches[0]
+        if expected.resolve() != expected:
+            raise ValueError("book storage redirects outside its owned path")
+        return expected
 
     def write_json_artifact(self, book_id: UUID | str, name: str, payload: dict[str, Any]) -> Path:
         destination = self.book_root(book_id) / name

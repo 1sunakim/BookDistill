@@ -7,6 +7,9 @@ from fastapi import HTTPException, Request
 def is_private_content_path(path: str) -> bool:
     return (
         path == "/api/v1/images" or path.startswith("/api/v1/images/")
+        or path == "/api/v2/books" or path.startswith("/api/v2/books/")
+        or path == "/api/v2/retrieval" or path.startswith("/api/v2/retrieval/")
+        or path == "/api/v2/exports" or path.startswith("/api/v2/exports/")
         or (path.startswith("/api/v1/books/") and path.endswith("/images"))
         or path == "/api/v1/exports" or path.startswith("/api/v1/exports/")
     )
