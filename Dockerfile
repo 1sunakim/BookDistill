@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -c constraints.lock ".[postgres,qdrant,models,lan
 RUN groupadd --system bookdistill && useradd --system --gid bookdistill --home /app bookdistill \
     && mkdir -p /app/data /app/model-cache \
     && chown -R bookdistill:bookdistill /app
-COPY docker-entrypoint.sh ./
+COPY --chmod=755 docker-entrypoint.sh ./
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 EXPOSE 8000
 CMD ["uvicorn", "bookdistill.main:app", "--host", "0.0.0.0", "--port", "8000"]

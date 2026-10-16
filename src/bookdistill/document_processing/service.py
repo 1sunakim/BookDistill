@@ -160,6 +160,8 @@ class IngestionService:
                 size_bytes=staged.size_bytes,
                 sha256=staged.sha256,
                 storage_uri=str(destination),
+                format="pdf",
+                source_unit_count=validated.page_count,
                 page_count=validated.page_count,
                 status="parsing",
                 created_at=now,
@@ -578,6 +580,10 @@ class IngestionService:
             return {}
 
     def delete_book(self, book_id: UUID) -> bool:
+        with self.session_factory() as session:
+            book = session.get(BookRecord, str(book_id))
+            if book is not None and book.format != "pdf":
+                return False
         with self.images.book_lock(book_id) if self.images else nullcontext():
             deleted = self._delete_book_records(book_id)
             # Retrying after a committed deletion can still finish orphan cleanup.
@@ -1105,12 +1111,13 @@ class IngestionService:
     def get_book(self, book_id: UUID) -> Book | None:
         with self.session_factory() as session:
             record = session.get(BookRecord, str(book_id))
-            return _book_contract(record) if record else None
+            return _book_contract(record) if record and record.format == "pdf" else None
 
     def list_books(self, *, limit: int = 100, offset: int = 0) -> list[Book]:
         with self.session_factory() as session:
             records = session.scalars(
                 select(BookRecord)
+                .where(BookRecord.format == "pdf")
                 .order_by(BookRecord.updated_at.desc(), BookRecord.id)
                 .limit(limit)
                 .offset(offset)

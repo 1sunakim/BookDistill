@@ -56,6 +56,17 @@ export interface JobList { items:JobView[]; total:number; limit:number; offset:n
 export interface HealthResponse { status:"ok"|"degraded"; service?:string; checks:Record<string,string>; timestamp:string; }
 export interface UploadAccepted { book_id:string; job_id:string; task_id:string|null; duplicate:boolean; }
 
+export interface TextBook {schema_version:"2.0";book_id:string;title:string;authors:string[];format:"txt"|"md"|"epub"|"docx";mime_type:string;size_bytes:number;language:string;source_unit_count:number|null;page_count:null;status:"queued"|"processing"|"processed"|"failed"|"cancelled";retrieval_ready:boolean;}
+export interface TextLineLocation {kind:"text_line";line_start:number;line_end:number;heading_path:string[];}
+export interface EpubAnchorLocation {kind:"epub_anchor";unit_index:number;href:string;anchor:string|null;block_index:number;}
+export interface DocxBlockLocation {kind:"docx_block";block_index:number;heading_path:string[];}
+export type BookSourceLocation = TextLineLocation|EpubAnchorLocation|DocxBlockLocation;
+export interface TextChapter {schema_version:"2.0";chapter_id:string;book_id:string;parent_id:string|null;title:string;level:number;order_index:number;source_block_id:string;source_location:BookSourceLocation;}
+export interface TextChunk {schema_version:"2.0";chunk_id:string;book_id:string;chapter_id:string;chapter_path:string[];text:string;raw_text:string;source_block_ids:string[];source_start:BookSourceLocation;source_end:BookSourceLocation;token_count:number;checksum:string;}
+export interface TextBookAccepted {book:TextBook;duplicate:boolean;task_id:string;}
+export interface SourceEvidence {schema_version:"2.0";evidence_id:string;chunk_id:string;book_id:string;book_title:string;format:TextBook["format"];chapter_id:string;chapter_path:string[];source_start:BookSourceLocation;source_end:BookSourceLocation;document_revision:string;text:string;score:number;}
+export interface SourceSearchResponse {schema_version:"2.0";request_id:string;evidence:SourceEvidence[];indexed_chunk_count:number;}
+
 export interface EvaluationDatasetSummary { dataset_key:string; dataset_name:string; dataset_version:string; split:string; case_count:number; description:string|null; }
 export interface EvaluationResult { schema_version:"1.0"; experiment:{experiment_id:string;dataset_version:string;retrieval_variant:string;parser_version:string;chunk_version:string}; dataset_name:string; dataset_version:string; created_at:string; aggregate:{evaluated_cases:number;excluded_unanswerable_cases:number;missing_or_failed_predictions:number;mrr:number;ndcg_at_10:number;cutoffs:{k:number;recall:number;precision:number}[];latency_p50_ms:number;latency_p95_ms:number}; cases:{case_id:string;question_type:string;first_relevant_rank:number|null;passed_at_10:boolean;error:string|null}[]; }
 

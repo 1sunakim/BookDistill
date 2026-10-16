@@ -14,7 +14,9 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 
 from bookdistill.contracts import (
     Book,
@@ -32,6 +34,14 @@ from bookdistill.database import create_database_engine, create_session_factory
 from bookdistill.document_processing.factory import build_document_service
 from bookdistill.document_processing.jobs import DocumentProcessingJobHandler
 from bookdistill.document_processing.exceptions import DocumentProcessingError
+from bookdistill.document_processing.text_service import TextBookService
+from bookdistill.document_processing.source_export import build_source_archive
+from bookdistill.document_processing.pdf_source_adapter import adapt_pdf_snapshot
+from bookdistill.document_processing.source_search import document_revision
+from bookdistill.contracts.document_v2 import (
+    BookV2, ChapterV2, ChunkV2, ParsedDocumentV2, SourceSearchRequest,
+    SourceSearchResponse, SourceReprocessRequest, SourceSnapshotV2, TextBookAccepted,
+)
 from bookdistill.settings import Settings
 from bookdistill.generation import (
     DistillationJobHandler,
@@ -89,6 +99,9 @@ def create_app(
     model_config = ModelConfigStore(resolved.storage_root)
     images = ImageAssetService(resolved, sessions)
     service = build_document_service(resolved, sessions, images)
+    text_books = TextBookService(
+        sessions, service.storage, maximum_tokens=resolved.chunk_max_tokens
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -101,6 +114,7 @@ def create_app(
     app.state.settings = resolved
     app.state.engine = engine
     app.state.ingestion_service = service
+    app.state.text_book_service = text_books
     app.state.image_assets = images
     retrieval = build_retrieval_engine(resolved)
     app.state.retrieval = retrieval
@@ -139,7 +153,7 @@ def create_app(
 
     registry = JobRegistry()
     registry.register(DemoJobHandler())
-    registry.register(DocumentProcessingJobHandler(service, index_book))
+    registry.register(DocumentProcessingJobHandler(service, index_book, text_books))
     if generation is not None:
         registry.register(RagAnswerJobHandler(generation, generation_repository))
     if distillation is not None:
@@ -313,6 +327,199 @@ def create_app(
             "code": error.code, "message": error.message,
             "trace_id": request.state.trace_id, "details": error.details,
         })
+
+    def _text_book_view(record) -> BookV2:
+        return BookV2(
+            book_id=UUID(record.id), title=record.title, authors=record.authors,
+            format=record.format, mime_type=record.mime_type,
+            size_bytes=record.size_bytes, language=record.language,
+            source_unit_count=record.source_unit_count,
+            status=record.status,
+            retrieval_ready=text_books.is_retrieval_ready(UUID(record.id)),
+        )
+
+    def _text_book_content(book_id: UUID):
+        result = text_books.get(book_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        return result
+
+    @app.post("/api/v2/books", response_model=TextBookAccepted, status_code=202)
+    def upload_text_book(
+        file: Annotated[UploadFile, File(description="UTF-8 TXT, Markdown, EPUB or DOCX book")],
+        title: Annotated[str | None, Form()] = None,
+        authors: Annotated[str, Form()] = "",
+        language: Annotated[str, Form()] = "zh-CN",
+    ) -> TextBookAccepted:
+        result = text_books.ingest(
+            file.file, filename=file.filename or "book.txt", mime_type=file.content_type,
+            title=title, authors=[value.strip() for value in authors.split(",") if value.strip()],
+            language=language,
+        )
+        task, created = jobs.create(CreateJobRequest(
+            job_type="document.process", subject_id=result.book_id,
+            input_reference={"book_id": str(result.book_id), "format": result.format},
+            idempotency_key=f"document-upload:{result.book_id}",
+        ))
+        if created:
+            dispatcher.dispatch(str(task.job_id))
+        record = text_books.get_book(result.book_id)
+        if record is None:
+            raise RuntimeError("text book disappeared after upload")
+        return TextBookAccepted(
+            book=_text_book_view(record), duplicate=result.duplicate,
+            task_id=task.job_id,
+        )
+
+    @app.get("/api/v2/books/{book_id}", response_model=BookV2)
+    def get_text_book(book_id: UUID) -> BookV2:
+        record = text_books.get_book(book_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        return _text_book_view(record)
+
+    @app.get("/api/v2/books", response_model=list[BookV2])
+    def list_text_books() -> list[BookV2]:
+        return [_text_book_view(record) for record in text_books.list_books()]
+
+    @app.get("/api/v2/books/{book_id}/parsed-document", response_model=ParsedDocumentV2)
+    def get_text_document(book_id: UUID) -> ParsedDocumentV2:
+        return _text_book_content(book_id)[1]
+
+    @app.get("/api/v2/books/{book_id}/chapters", response_model=list[ChapterV2])
+    def get_text_chapters(book_id: UUID) -> list[ChapterV2]:
+        return _text_book_content(book_id)[2]
+
+    @app.get("/api/v2/books/{book_id}/chunks", response_model=list[ChunkV2])
+    def get_text_chunks(book_id: UUID) -> list[ChunkV2]:
+        return _text_book_content(book_id)[3]
+
+    @app.get("/api/v2/books/{book_id}/source", response_model=None)
+    def get_text_source(book_id: UUID) -> PlainTextResponse | FileResponse:
+        book = text_books.get_book(book_id)
+        if book is None:
+            raise HTTPException(status_code=404, detail="Book not found")
+        if book.format in {"epub", "docx"}:
+            source_path = text_books.original_binary_path(book_id)
+            if source_path is None:
+                raise HTTPException(status_code=404, detail="Book source not found")
+            return FileResponse(source_path, media_type=book.mime_type, filename=book.original_file_name)
+        content = text_books.read_original(book_id)
+        if content is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        return PlainTextResponse(content, media_type="text/plain; charset=utf-8")
+
+    @app.post("/api/v2/retrieval/search", response_model=SourceSearchResponse)
+    def search_source_books(payload: SourceSearchRequest) -> SourceSearchResponse:
+        return text_books.search.search(payload)
+
+    @app.get("/api/v2/books/{book_id}/source-snapshot", response_model=SourceSnapshotV2)
+    def get_source_snapshot(book_id: UUID, response: Response) -> SourceSnapshotV2:
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        if jobs.repository.find_active(book_id, "document.process") is not None:
+            raise HTTPException(status_code=409, detail="Document processing is active")
+        text_book = text_books.get_book(book_id)
+        if text_book is not None:
+            if not text_books.is_retrieval_ready(book_id):
+                raise HTTPException(status_code=409, detail="Text book processing is incomplete")
+            snapshot = text_books.get(book_id)
+            if snapshot is None:
+                raise HTTPException(status_code=409, detail="Text book source snapshot is incomplete")
+            _, document, chapters, chunks = snapshot
+        else:
+            book = service.get_book(book_id)
+            if book is None:
+                raise HTTPException(status_code=404, detail="Book not found")
+            if book.status != "ready":
+                raise HTTPException(status_code=409, detail="PDF processing is incomplete")
+            parsed = service.get_parsed_document(book_id)
+            pdf_chapters = service.get_chapters(book_id)
+            pdf_chunks = service.get_chunks(book_id)
+            if parsed is None or pdf_chapters is None or pdf_chunks is None:
+                raise HTTPException(status_code=409, detail="PDF source snapshot is incomplete")
+            try:
+                document, chapters, chunks = adapt_pdf_snapshot(
+                    parsed, pdf_chapters, pdf_chunks, source_sha256=book.sha256,
+                )
+            except ValueError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from error
+        snapshot_view = SourceSnapshotV2(
+            book_id=book_id, format=document.format,
+            document_revision=document_revision(document, chunks),
+            document=document, chapters=chapters, chunks=chunks,
+        )
+        if jobs.repository.find_active(book_id, "document.process") is not None:
+            raise HTTPException(status_code=409, detail="Document processing is active")
+        return snapshot_view
+
+    @app.post("/api/v2/books/{book_id}/reprocess", response_model=JobView, status_code=202)
+    def reprocess_text_book(book_id: UUID, payload: SourceReprocessRequest) -> JobView:
+        if text_books.get_book(book_id) is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        if payload.idempotency_key:
+            existing = jobs.repository.find_by_idempotency("document.process", payload.idempotency_key)
+            if existing is not None:
+                if existing.subject_id != book_id:
+                    raise HTTPException(status_code=409, detail="Idempotency key belongs to another book")
+                return existing
+        active = jobs.repository.find_active(book_id, "document.process")
+        if active is not None:
+            raise HTTPException(status_code=409, detail={
+                "code": "BOOK_JOB_ACTIVE", "job_id": str(active.job_id),
+            })
+        job, created = jobs.create(CreateJobRequest(
+            job_type="document.process", subject_id=book_id,
+            input_reference={
+                "book_id": str(book_id), "format": text_books.get_book(book_id).format,
+                "from_stage": payload.from_stage,
+            },
+            idempotency_key=payload.idempotency_key or f"source-reprocess:{book_id}:{uuid4()}",
+            max_attempts=payload.max_attempts,
+        ))
+        if created:
+            text_books.mark_queued(book_id)
+            dispatcher.dispatch(str(job.job_id))
+        return jobs.get(str(job.job_id))
+
+    @app.delete("/api/v2/books/{book_id}", status_code=204)
+    def delete_text_book(book_id: UUID) -> Response:
+        if text_books.get_book(book_id) is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        active = jobs.repository.find_active(book_id, "document.process")
+        if active is not None:
+            raise HTTPException(status_code=409, detail={
+                "code": "BOOK_JOB_ACTIVE", "job_id": str(active.job_id),
+            })
+        text_books.delete_book(book_id)
+        return Response(status_code=204)
+
+    @app.get("/api/v2/exports/obsidian")
+    def export_source_book(book_id: UUID, include_original: bool = False) -> StreamingResponse:
+        if text_books.get_book(book_id) is None:
+            raise HTTPException(status_code=404, detail="Text book not found")
+        if not text_books.is_retrieval_ready(book_id):
+            raise HTTPException(status_code=409, detail="Text book is not ready for export")
+        try:
+            archive = build_source_archive(text_books, book_id, include_original=include_original)
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        archive.seek(0, 2)
+        size = archive.tell()
+        archive.seek(0)
+
+        def chunks():
+            try:
+                while part := archive.read(1024 * 1024):
+                    yield part
+            finally:
+                archive.close()
+
+        return StreamingResponse(chunks(), media_type="application/zip", headers={
+            "Content-Disposition": f'attachment; filename="bookdistill-{book_id}.zip"',
+            "Content-Length": str(size), "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        }, background=BackgroundTask(archive.close))
 
     @app.post("/api/v1/books", response_model=UploadAccepted, status_code=202)
     def upload_book(

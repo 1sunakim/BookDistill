@@ -14,6 +14,7 @@ from bookdistill.document_processing import (
     build_document_service,
 )
 from bookdistill.document_processing.service import IngestionService
+from bookdistill.document_processing.text_service import TextBookService
 from bookdistill.settings import Settings
 from bookdistill.generation import (
     DistillationJobHandler,
@@ -56,6 +57,9 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     registry.register(DemoJobHandler())
     images = ImageAssetService(settings, sessions)
     documents = build_document_service(settings, sessions, images)
+    text_books = TextBookService(
+        sessions, documents.storage, maximum_tokens=settings.chunk_max_tokens
+    )
     retrieval = build_retrieval_engine(settings)
 
     def index_book(book_id):
@@ -81,7 +85,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         documents.mark_book_ready(book_id)
         return {"indexed_count": indexed, "book_status": "ready"}
 
-    registry.register(DocumentProcessingJobHandler(documents, index_book))
+    registry.register(DocumentProcessingJobHandler(documents, index_book, text_books))
     model_config = ModelConfigStore(settings.storage_root)
     generation = build_generation_service(settings, model_config)
     distillation = build_distillation_service(settings, model_config)

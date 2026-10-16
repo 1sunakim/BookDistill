@@ -159,6 +159,7 @@ python -m unittest discover -s tests -v
 
 ## 项目文档
 
+- [自动蒸馏与多格式书籍接入开发方案](docs/automatic-distillation-and-multiformat-development.md)
 - [系统架构](docs/architecture.md)
 - [数据协议](docs/data-contracts.md)
 - [API 概览](docs/api.md)

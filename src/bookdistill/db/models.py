@@ -32,7 +32,9 @@ class BookRecord(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     storage_uri: Mapped[str] = mapped_column(String(2000), nullable=False)
-    page_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    format: Mapped[str] = mapped_column(String(16), nullable=False, default="pdf")
+    source_unit_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
@@ -47,6 +49,45 @@ class BookRecord(Base):
     )
 
     __table_args__ = (Index("ix_books_status", "status"),)
+
+
+class SourceDocumentRecord(Base):
+    """V2 source-aware document and its first-batch chapter/Chunk projections."""
+
+    __tablename__ = "source_documents"
+
+    book_id: Mapped[str] = mapped_column(
+        ForeignKey("books.id", ondelete="CASCADE"), primary_key=True
+    )
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    document: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    chapters: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    chunks: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    document_revision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    indexed_revision: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class SourceChunkIndexRecord(Base):
+    """Search projection over V2 chunks; source_documents remains authoritative."""
+
+    __tablename__ = "source_chunk_index"
+
+    chunk_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    book_id: Mapped[str] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    chapter_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    document_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    format: Mapped[str] = mapped_column(String(16), nullable=False)
+    token_frequencies: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False)
+    token_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    chunk: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+    __table_args__ = (
+        Index("ix_source_chunk_index_book", "book_id"),
+        Index("ix_source_chunk_index_chapter", "chapter_id"),
+    )
 
 
 class ParsingJobRecord(Base):

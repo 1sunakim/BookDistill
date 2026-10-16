@@ -7,6 +7,8 @@ from .models import (
     ParsedDocumentRecord,
     ParsingJobRecord,
     ProcessingErrorRecord,
+    SourceDocumentRecord,
+    SourceChunkIndexRecord,
 )
 from .task_models import JobRecord, StageRunRecord
 from .image_models import ImageAssetRecord
@@ -25,6 +27,8 @@ __all__ = [
     "ParsedDocumentRecord",
     "ParsingJobRecord",
     "ProcessingErrorRecord",
+    "SourceDocumentRecord",
+    "SourceChunkIndexRecord",
     "JobRecord",
     "StageRunRecord",
     "ConversationMessageRecord",
