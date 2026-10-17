@@ -39,7 +39,7 @@ BookDistill 前端
 | `create_questions` | `/api/v1/generation/questions` | 限定题量和同一次任务的 Evidence | 返回题目、答案、解释及引用 |
 | `get_job_status` | `/api/v1/jobs/{job_id}` | 只接受本会话发起的任务 ID | 稳定状态、错误码和结果引用 |
 
-工具层使用 Pydantic/JSON Schema 校验输入输出；按现有 `schema_version=1.0` 契约构造 `RetrievalRequest`、生成请求和 TraceContext。每个调用携带 `trace_id`、`agent_run_id`、书籍白名单和超时。Agent 不能决定新的书籍访问范围；服务端以用户授权范围覆盖模型提出的参数。现有 BookDistill 主 API 在配置密钥后要求 POST 与任务查询携带 `X-BookDistill-API-Key`，Agent 服务需从私密环境注入该头，并区分用户身份与服务间凭证。异步写操作使用 BookDistill 的幂等键，失败时按既有任务错误码分类。API 密钥不进入提示词、日志或 Git。
+工具层使用 Pydantic/JSON Schema 校验输入输出；按现有 `schema_version=1.0` 契约构造 `RetrievalRequest`、生成请求和 TraceContext。每个调用携带 `trace_id`、`agent_run_id`、本次请求的书籍白名单和超时。Agent 不能扩大入口请求指定的书籍范围；服务端覆盖模型提出的范围。现有 BookDistill 主 API 在配置密钥后要求 POST 与任务查询携带 `X-BookDistill-API-Key`，Agent 服务需从私密环境注入该头。当前全局 API 密钥不等于用户级书籍授权；若产品面向多用户，需另加身份与书籍权限校验后才能开放。异步写操作使用 BookDistill 的幂等键，失败时按既有任务错误码分类。API 密钥不进入提示词、日志或 Git。
 
 ### 2.2 会话与结果协议
 
@@ -50,17 +50,24 @@ BookDistill 前端
 
 官方依据：[Deep Agents 自定义参数](https://docs.langchain.com/oss/python/deepagents/customization)、[工具与 MCP](https://docs.langchain.com/oss/python/deepagents/tools)、[子代理](https://docs.langchain.com/oss/python/deepagents/subagents)、[人工审批](https://docs.langchain.com/oss/python/deepagents/human-in-the-loop)。
 
-## 3. 实现顺序与验收
+## 3. 四轮制作安排
 
-| 阶段 | 工作内容 | 可交付物 | 退出条件 |
+本节将“产品制作”压缩为后续四次对话，每轮完成代码、针对性验证、文档更新及一次可回滚提交，并推送到 `1sunakim/agent/book-research`。一次对话对应一个完整的开发阶段；遇到外部模型或环境阻断时，完成不依赖它的代码并如实记录剩余条件，不把假模型结果当成真实产品验证。
+
+四轮结束时的产品范围：前端可选择至少两本已入库书籍、发起跨书研究问题、查看带原页定位的比较结果，并继续生成基于同一证据的复习题；有独立 Agent 服务、受控工具、会话/运行状态、鉴权、部署配置和失败提示。原有单书 RAG 与蒸馏入口保持可用。正式质量验收、冻结数据集与发布结论在制作完成后另行安排。
+
+| 对话 | 本轮制作内容 | 本轮应交付的可运行结果 | 本轮必须做的工程检查 |
 | --- | --- | --- | --- |
-| P0 基线与兼容性 | 核对 BookDistill 的远端 10 个提交、保护本地改动；冻结 BookDistill/Deep Agents/模型版本；验证模型 `bind_tools`、结构化输出和引用协议 | 基线记录、依赖矩阵、演示数据与问题集 | 两本书可检索；工具调用模型通过最小真实调用；无密钥假模型测试可重复 |
-| P1 工具原型 | 在独立环境实现 HTTP 客户端和上述五个工具；命令行调用 Deep Agents；先只读检索与可信回答，再加比较和题目 | 可重复脚本、工具契约测试、一次完整 Trace | 无答案能拒答；不存在的 Evidence ID 被拒绝；所有引用可回查原 Chunk；故障返回稳定错误 |
-| P2 服务化 | 独立 Agent API、会话映射、checkpoint、鉴权、超时、取消、幂等和观测；BookDistill API 添加受控转发入口 | Compose 服务、运行协议、集成测试 | 重试不重复创建 Artifact；越权书籍被拒绝；API/Worker 原链路回归通过 |
-| P3 产品入口 | 前端增加“跨书研究”入口，展示步骤、引用、原页定位、任务状态及失败恢复 | 可演示的端到端界面 | 用户能从问题进入证据、答案、来源页和后续复习题；中断后可恢复或明确失败 |
-| P4 评测与发布 | 与原 RAG 做同集对照；记录任务完成率、引用准确性、忠实度、拒答、P50/P95 延迟、Token/成本；完成双人标注 | 冻结数据集、报告、发布结论 | 沿用 BookDistill 正式门禁：引用页码准确率 ≥0.90、忠实度 ≥0.85、不可回答无引用拒答率 =1.00；满足不少于 100 题、两本真实书、冻结 test 集和双人复核后才能称为质量验收 |
+| **1：契约与最小链路** | 审阅最新 BookDistill API/`schema_version=1.0` 契约；在 `integrations/deepagents/` 建独立依赖环境与配置；实现带超时、错误映射和服务密钥注入的 HTTP 客户端，以及 `search_evidence`、`answer_from_evidence` 两个工具；用 Deep Agents 组装命令行原型；实测候选模型的工具调用能力 | 给定书籍范围与问题，原型完成检索→可信回答，输出 BookDistill 原生 Citation；留下依赖/模型兼容性记录 | 契约测试、无密钥假模型运行、最小真实工具调用冒烟（若凭证可用）；禁止 Agent 扩大书籍范围或伪造引用 |
+| **2：跨书工作流与 Agent 服务** | 加入 `compare_viewpoints`、`create_questions`、`get_job_status`；构造逐书 Evidence 分组和结果协议；实现独立 Agent API、运行状态、`conversation_id`↔`thread_id` 映射、checkpoint、幂等键和结构化错误 | 可通过 Agent API 创建跨书研究运行、查询状态，得到可信比较结果和复习题；中断/重试不会无条件重复生成 Artifact | 工具契约与越权测试、无证据拒答、错误 Evidence ID 拒绝、恢复/重试检查 |
+| **3：BookDistill 与前端接入** | BookDistill API 增加受控 Agent 转发入口和功能开关；Compose 增加独立服务、环境变量与健康检查；前端增加“跨书研究”页面，按状态轮询并展示证据、引用、原页定位、比较与题目 | 从浏览器完成“选书→提问→查看引用→生成题目”的完整流程；Agent 故障不阻断原 RAG | API 鉴权与范围校验、前端构建、Compose 配置检查、原 RAG/蒸馏相关回归 |
+| **4：产品收尾** | 打磨超时/取消、恢复、重复提交、空结果、错误提示及 Trace；补齐运行文档、演示数据与启动脚本；固定 Deep Agents 与模型配置版本 | 新机器按文档可启动并演示完整流程；每次运行能定位请求、工具、证据、产物和错误 | 有针对性的后端/前端测试、零密钥工程冒烟、受控真实模型端到端冒烟（若凭证可用）、Git 状态与提交核对 |
 
-P0/P1 的少量案例只证明机制可运行，不能作为正式质量结论。P4 的 Agent 专属任务完成率和成本门槛，应在 P0 记录原链路基线后再定；先报告原始数值、差异和失败案例，不预设提升。每阶段只推进其依赖的最小改动，P1 未达引用与权限验收时不开始前端集成。
+每轮结束只以“功能可运行且关键不变量通过检查”为继续条件，不做统计意义上的质量宣称。下一轮直接基于上一轮提交继续，不重新设计架构或新建主分支。若真实模型暂不可用，第四轮可完成零密钥演示模式，但必须在交付结论中明确真实 Agent 模型链路尚未验证。
+
+### 制作完成后再进行的正式验收
+
+另开验收阶段：与原 RAG 在同一冻结数据集对照，记录任务完成率、引用准确性、忠实度、拒答率、P50/P95 延迟和 Token/成本；用至少两本真实书、不少于 100 题及双人独立复核运行既有发布门禁。BookDistill 当前门槛为引用页码准确率 ≥0.90、忠实度 ≥0.85、不可回答问题无引用拒答率 =1.00。正式验收完成前，四轮制作的演示结果只能称为工程验证，不能称为质量提升或发布通过。
 
 ## 4. 目录与变更归属
 
@@ -91,7 +98,7 @@ P0/P1 的少量案例只证明机制可运行，不能作为正式质量结论�
 
 ### 5.2 分支与提交粒度
 
-- 集成主线：`1sunakim/agent/book-research`，只在新 worktree 工作。按 P0→P4 提交，保持每个提交可测试、可回滚。示例：`docs(agent): define integration contracts`、`feat(agent): add BookDistill evidence tools`、`feat(agent): add run service and checkpoints`、`feat(frontend): add cross-book research flow`、`test(agent): add grounded answer evaluation`。
+- 集成主线：`1sunakim/agent/book-research`，只在新 worktree 工作。按上述四轮制作提交，保持每个提交可测试、可回滚。示例：`feat(agent): add BookDistill evidence tools`、`feat(agent): add run service and checkpoints`、`feat(frontend): add cross-book research flow`、`fix(agent): harden recovery and errors`。
 - 如需隔离大范围依赖调整，另建 `1sunakim/deps/deepagents-adapter`，只做锁文件和构建配置，单独审查后并入集成分支。
 - 若修改 Deep Agents 源码，依仓库规范在其自身仓库另建 `1sunakim/sdk/<short-description>`，不得把 BookDistill 业务代码提交给上游 fork。
 - 每完成一个阶段：运行阶段测试与现有相关回归，记录通过/失败输出，提交代码和小型可复现资料，推送分支作为异机备份；在 PR 描述中写明基线、变更、测试、风险和回滚。合并前再从最新 `origin/main` 更新集成分支并解决冲突，禁止用强制推送覆盖别人新增的提交。
@@ -110,11 +117,8 @@ P0/P1 的少量案例只证明机制可运行，不能作为正式质量结论�
 4. **数据权限与提示注入**：检索到的书内文本视为数据，不作为工具指令；服务端校验书籍白名单、工具权限、输出字段和最大请求成本。需要写入 Artifact 的工具可启用人工审批；首版不开放通用 shell。
 5. **依赖与升级**：在独立环境固定 Deep Agents 版本。升级前运行契约测试、真实模型冒烟和评测对照；不直接让 fork 的 `main` 浮动进入生产。
 
-## 7. 下一步执行清单
+## 7. 下一轮对话的起点
 
-1. 在已建立的集成 worktree 中完成 P0 的 API/协议审阅、依赖兼容性记录和备份文件分类；原工作树保持原样。
-2. 选定两本可合法用于开发/演示的 PDF 与 10—20 个机制测试问题，记录当前 BookDistill 原链路结果。
-3. 对候选模型做真实工具调用冒烟，确认延迟、费用与失败行为。
-4. 实现五个工具的最小 HTTP 适配器，先跑无密钥假模型测试，再跑受控真实模型演示。
+直接执行第 1 轮：在 `E:\计划项目\BookDistill-agent` 审阅最新 API 契约并实现独立环境、HTTP 客户端、检索与可信回答工具及命令行原型；完成针对性验证后提交并推送。选用当前可合法开发的书籍作为演示数据，不迁移原工作树中的全部未跟踪产物。第 1 轮结束时记录能否使用现有模型进行真实工具调用；如不能，明确阻断条件并保留可运行的假模型链路。
 
 相关本地资料：`docs/architecture.md`、`docs/api.md`、`docs/generation-mvp.md`、`docs/generation-acceptance.md`、`docs/evaluation.md`、`docs/task-system.md`、`docs/langchain-adapter-rollout.md`；Deep Agents 的 `libs/ARCHITECTURE.md` 和 `libs/DEVELOPMENT.md`。
