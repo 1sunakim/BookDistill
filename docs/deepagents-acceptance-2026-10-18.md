@@ -1,7 +1,9 @@
 # BookDistill × Deep Agents 自动验收记录
 
-日期：2026-10-18  
-分支：`1sunakim/agent/book-research`  
+日期：2026-10-18
+
+分支：`1sunakim/agent/book-research`
+
 代码基线：`fa37a49390a77279b2dff8533933a533e365d963`
 
 ## 验收范围与结论
