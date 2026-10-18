@@ -1,4 +1,4 @@
-import type { Book, Chapter, Chunk, DistillationKind, EvaluationDatasetSummary, EvaluationResult, HealthResponse, ImageAssetList, ImageAssetView, JobList, JobView, ObsidianExportOptions, RetrieveAndAnswerResponse, RetrievalResponse, SourceSearchResponse, TextBook, TextBookAccepted, TextChapter, TextChunk, UploadAccepted } from "./bookdistill-contracts";
+import type { AgentRunView, Book, Chapter, Chunk, DistillationKind, EvaluationDatasetSummary, EvaluationResult, HealthResponse, ImageAssetList, ImageAssetView, JobList, JobView, ObsidianExportOptions, RetrieveAndAnswerResponse, RetrievalResponse, SourceSearchResponse, TextBook, TextBookAccepted, TextChapter, TextChunk, UploadAccepted } from "./bookdistill-contracts";
 
 const ENV_API_BASE = process.env.NEXT_PUBLIC_BOOKDISTILL_API_URL?.replace(/\/$/, "") ?? "";
 
@@ -134,6 +134,8 @@ export const bookDistillApi={
   cancelJob:(jobId:string)=>request<JobView>(`/api/v1/jobs/${jobId}/cancel`,{method:"POST"}),
   retrieve:(query:string, bookIds:string[], chapterIds:string[]=[])=>request<RetrievalResponse>("/api/v1/retrieval/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({schema_version:"1.0",request_id:crypto.randomUUID(),query,scope:{book_ids:bookIds,chapter_ids:chapterIds}})}),
   ask:(question:string, bookIds:string[], chapterIds:string[]=[])=>{const requestId=crypto.randomUUID();return request<RetrieveAndAnswerResponse>("/api/v1/rag/answer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({schema_version:"1.0",trace_context:{request_id:requestId,trace_id:crypto.randomUUID()},question,scope:{book_ids:bookIds,chapter_ids:chapterIds},language:"bilingual"})});},
+  createResearchRun:(question:string,bookIds:string[],questionCount:number,idempotencyKey:string)=>request<AgentRunView>("/api/v1/agent/runs",{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":idempotencyKey},body:JSON.stringify({question,book_ids:bookIds,question_count:questionCount})}),
+  getResearchRun:(runId:string)=>request<AgentRunView>(`/api/v1/agent/runs/${encodeURIComponent(runId)}`),
   distill:(kind:DistillationKind,payload:unknown)=>request<Record<string,unknown>>(`/api/v1/generation/${kind}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),
   distillSaved:async(kind:DistillationKind,payload:unknown)=>{
     const response=await fetchResponse(`/api/v1/generation/${kind}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});

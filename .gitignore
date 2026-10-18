@@ -15,6 +15,7 @@ python-*-embed-amd64.zip
 frontend/node_modules/
 frontend/.next/
 frontend/dist/
+frontend/*.tsbuildinfo
 frontend/.sites-runtime/
 frontend/.wrangler/
 

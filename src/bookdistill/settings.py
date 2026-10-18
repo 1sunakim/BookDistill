@@ -16,6 +16,10 @@ class Settings:
     heartbeat_timeout_seconds: int = 120
     retry_base_seconds: int = 5
     api_key: str = ""
+    agent_enabled: bool = False
+    agent_url: str = "http://agent:8081"
+    agent_api_key: str = ""
+    agent_timeout_seconds: float = 10.0
     rate_limit_per_minute: int = 240
     worker_heartbeat_ttl_seconds: int = 45
     minimum_storage_free_bytes: int = 64 * 1024 * 1024
@@ -74,6 +78,10 @@ class Settings:
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
+        if self.agent_enabled and (not self.api_key or not self.agent_api_key):
+            raise ValueError("Agent integration requires BookDistill and Agent API keys")
+        if self.agent_timeout_seconds <= 0:
+            raise ValueError("agent_timeout_seconds must be positive")
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -91,6 +99,10 @@ class Settings:
             ),
             retry_base_seconds=int(os.getenv("BOOKDISTILL_RETRY_BASE_SECONDS", "5")),
             api_key=os.getenv("BOOKDISTILL_API_KEY", ""),
+            agent_enabled=os.getenv("BOOKDISTILL_AGENT_ENABLED", "false").lower() in {"1", "true", "yes"},
+            agent_url=os.getenv("BOOKDISTILL_AGENT_URL", "http://agent:8081").rstrip("/"),
+            agent_api_key=os.getenv("BOOKDISTILL_AGENT_API_KEY", ""),
+            agent_timeout_seconds=float(os.getenv("BOOKDISTILL_AGENT_TIMEOUT_SECONDS", "10")),
             rate_limit_per_minute=int(os.getenv("BOOKDISTILL_RATE_LIMIT_PER_MINUTE", "240")),
             worker_heartbeat_ttl_seconds=int(
                 os.getenv("BOOKDISTILL_WORKER_HEARTBEAT_TTL_SECONDS", "45")

@@ -68,4 +68,8 @@ uv run bookdistill-agent-api
 
 ## 边界与下一轮
 
-目前没有 BookDistill 内部转发入口、前端入口或部署编排；这些属于计划中的第 3–4 轮。检索证据文本视为数据，不作为指令。生成端的引用和原页定位由 BookDistill 服务校验并提供，Agent 服务进一步检查返回值与本次证据一致。
+第 3 轮已接入 BookDistill 转发入口、前端页面和 Compose 独立容器。启动完整服务前，在本地私密环境中分别设置 `BOOKDISTILL_API_KEY` 与 `BOOKDISTILL_AGENT_API_KEY`，并设置 `BOOKDISTILL_AGENT_ENABLED=true`，然后运行 `docker compose --profile agent up --build`。`BOOKDISTILL_AGENT_ENABLED=false` 时旧问答与蒸馏入口继续工作；Agent 服务不暴露公网端口。前端“跨书研究”仅选择状态为 ready 的 PDF，引用可打开相应书籍的文本块并显示 PDF 页码；v2 文本书需要后续适配其不同的定位协议。
+
+第 3 轮工程检查：前端 `npm run build` 与 `npx tsc --noEmit` 通过；`docker compose --profile agent config --quiet` 通过；Agent 镜像构建、容器健康冒烟通过；BookDistill 转发与原检索、RAG、蒸馏相关后端测试通过。未在真实书籍上执行外部模型端到端测试；此项仍需用户明确指定可外传书籍。正式验收和质量对照仍属于第 4 轮之后。
+
+检索证据文本视为数据，不作为指令。生成端的引用和原页定位由 BookDistill 服务校验并提供，Agent 服务进一步检查返回值与本次证据一致。第 4 轮继续处理取消、超时、重复提交与追踪细节。

@@ -53,6 +53,7 @@ from bookdistill.generation import (
     build_distillation_service,
 )
 from bookdistill.generation_api import create_generation_router
+from bookdistill.agent_proxy import create_agent_proxy_router
 from bookdistill.generation.repository import GenerationRepository
 from bookdistill.evaluation_api import create_evaluation_router
 from bookdistill.retrieval import build_retrieval_engine
@@ -213,6 +214,7 @@ def create_app(
             resolved.api_key
             and (
                 request.url.path.startswith("/api/v1/model-config")
+                or request.url.path.startswith("/api/v1/agent")
                 or
                 request.method not in {"GET", "HEAD", "OPTIONS"}
                 or request.url.path.startswith("/api/v1/jobs")
@@ -710,6 +712,7 @@ def create_app(
     app.include_router(create_image_router(images))
     app.include_router(create_export_router(exporter))
     app.include_router(create_model_config_router(model_config, resolved))
+    app.include_router(create_agent_proxy_router(resolved, service.get_book))
     app.include_router(create_retrieval_router(retrieval))
     app.include_router(create_evaluation_router(retrieval, resolved.storage_root))
     app.include_router(create_task_router(

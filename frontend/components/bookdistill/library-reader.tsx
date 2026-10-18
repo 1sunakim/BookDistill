@@ -35,7 +35,7 @@ function LibraryCard({item,onOpen,onAsk}:{item:LibraryBook;onOpen:(item:LibraryB
   </article>;
 }
 
-export function BookView({book,onAsk,onConfigureKey}:{book:Book;onAsk:()=>void;onConfigureKey:()=>void}) {
+export function BookView({book,onAsk,onConfigureKey,focusChunkId}:{book:Book;onAsk:()=>void;onConfigureKey:()=>void;focusChunkId?:string}) {
   const [snapshot,setSnapshot]=useState<{identity:string;chapters:Chapter[];chunks:Chunk[];error:string|null}|null>(null);
   const [chapterId,setChapterId]=useState("");
   const [section,setSection]=useState<"text"|"images">(book.status==="failed"?"images":"text");
@@ -46,6 +46,14 @@ export function BookView({book,onAsk,onConfigureKey}:{book:Book;onAsk:()=>void;o
   const chunks=current?.chunks??[];
   const loading=current===null;
   const error=current?.error??null;
+  useEffect(()=>{
+    if(!current||!focusChunkId)return;
+    const match=current.chunks.find(chunk=>chunk.chunk_id===focusChunkId);
+    if(!match)return;
+    const selectTimer=window.setTimeout(()=>{setChapterId(match.chapter_id);setSection("text")},0);
+    const scrollTimer=window.setTimeout(()=>readingPane.current?.querySelector(`[data-chunk-id="${focusChunkId}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}),150);
+    return()=>{window.clearTimeout(selectTimer);window.clearTimeout(scrollTimer)};
+  },[current,focusChunkId]);
   useEffect(()=>{
     const controller=new AbortController();
     Promise.all([bookDistillApi.getChapters(book.book_id,controller.signal),bookDistillApi.getChunks(book.book_id,controller.signal)])
@@ -77,7 +85,7 @@ export function BookView({book,onAsk,onConfigureKey}:{book:Book;onAsk:()=>void;o
       {section==="images"?<BookImages book={book} onConfigureKey={onConfigureKey}/>:loading?<LoadingState label="正在加载章节与原文块"/>:<>
         {error&&<ErrorPanel message={error}/>}
         <div className="mb-7 flex items-start justify-between gap-3 border-b pb-5"><div><p className="text-xs font-medium text-primary">{selected?`第 ${selected.order_index+1} 章 · 层级 ${selected.level}`:"已切分原文"}</p><h2 className="mt-2 text-2xl font-semibold">{selected?.title??book.title}</h2></div>{selected&&<span className="shrink-0 rounded-lg border bg-white px-3 py-1.5 text-sm text-muted-foreground">PDF {selected.page_start+1}–{selected.page_end+1}</span>}</div>
-        {visible.length?<div className="space-y-5">{visible.map(chunk=><section key={chunk.chunk_id} className="chunk-block"><div className="chunk-label">{chunk.content_type} · PDF {chunk.page_start+1}–{chunk.page_end+1} · {chunk.token_count} tokens</div><p className="whitespace-pre-wrap text-[16px] leading-8 text-[#323b4d]">{chunk.text}</p></section>)}</div>:<EmptyState title={book.status==="failed"?"文本处理失败":"此章节暂无文本块"} description={book.status==="failed"?"请在系统状态中查看失败原因。已保存图片可通过“书中图片”查看；扫描页暂不支持文本识别。":"可在系统状态页查看处理任务，或等待索引阶段完成。"} action={<Button variant="outline" onClick={()=>setSection("images")}>查看书中图片</Button>}/>}
+        {visible.length?<div className="space-y-5">{visible.map(chunk=><section key={chunk.chunk_id} data-chunk-id={chunk.chunk_id} className={`chunk-block ${focusChunkId===chunk.chunk_id?"ring-2 ring-primary":""}`}><div className="chunk-label">{chunk.content_type} · PDF {chunk.page_start+1}–{chunk.page_end+1} · {chunk.token_count} tokens</div><p className="whitespace-pre-wrap text-[16px] leading-8 text-[#323b4d]">{chunk.text}</p></section>)}</div>:<EmptyState title={book.status==="failed"?"文本处理失败":"此章节暂无文本块"} description={book.status==="failed"?"请在系统状态中查看失败原因。已保存图片可通过“书中图片”查看；扫描页暂不支持文本识别。":"可在系统状态页查看处理任务，或等待索引阶段完成。"} action={<Button variant="outline" onClick={()=>setSection("images")}>查看书中图片</Button>}/>}
       </>}
     </div></article>
     <aside className="border-l bg-white p-5 xl:min-h-0 xl:overflow-y-auto"><Button onClick={onAsk} disabled={book.status!=="ready"} className="w-full rounded-xl"><MessageSquareText className="size-4"/>基于本书提问</Button><div className="mt-7 space-y-4 text-sm"><Metric label="状态" value={book.status}/><Metric label="章节" value={String(chapters.length)}/><Metric label="文本块" value={String(chunks.length)}/><Metric label="语言" value={book.language}/><Metric label="协议" value={book.schema_version}/></div><ObsidianExportPanel book={book} onConfigureKey={onConfigureKey}/></aside>
