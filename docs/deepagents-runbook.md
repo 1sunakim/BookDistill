@@ -1,6 +1,6 @@
 # 跨书研究运行手册
 
-适用分支：`1sunakim/agent/book-research`。Agent 依赖 `deepagents==0.7.23`、`langchain-openai==1.6.6` 和已提交的 `integrations/deepagents/uv.lock`。正式跨书路径由固定步骤编排；Deep Agents 工具循环在独立 CLI 演示和工具测试中使用。不要将固定步骤路径描述为模型自主规划。
+适用版本：`main`（由 `1sunakim/agent/book-research` 快进合并）。Agent 依赖 `deepagents==0.7.23`、`langchain-openai==1.6.6` 和已提交的 `integrations/deepagents/uv.lock`。正式跨书路径由固定步骤编排；Deep Agents 工具循环在独立 CLI 演示和工具测试中使用。不要将固定步骤路径描述为模型自主规划。
 
 ## 启动
 

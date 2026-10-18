@@ -87,6 +87,12 @@ GET  /api/v1/metrics
 
 完整运行环境可用 `docker compose up --build` 一条命令启动前端、API、Worker、Beat、PostgreSQL、Redis 和 Qdrant。前端位于 `http://127.0.0.1:3000`，API 位于 `http://127.0.0.1:8000`；默认仅绑定本机回环地址。以后允许网络访问时，可通过 `BOOKDISTILL_PUBLIC_API_URL`、`BOOKDISTILL_CORS_ORIGINS`、`BOOKDISTILL_API_KEY` 以及反向代理配置扩展，不需要改 API 路由。
 
+### 跨书研究（可选 Agent 服务）
+
+正式主分支已包含前端“跨书研究”、BookDistill 受控代理和独立 Agent 服务。选择 2–10 本已就绪的 PDF 后，可逐书检索、比较观点、打开原页引用并生成复习题；支持运行状态、取消、人工重试与断点恢复。当前产品流程按固定步骤编排，Deep Agents 的自主工具调用在独立 CLI 演示和测试中验证。
+
+默认关闭 Agent 入口。启用时在私密环境中设置不同的 `BOOKDISTILL_API_KEY` 和 `BOOKDISTILL_AGENT_API_KEY`，然后运行 `scripts/start-cross-book.ps1 -Build`；脚本会设置 `BOOKDISTILL_AGENT_ENABLED=true` 并启动 Compose 的 `agent` profile。网页右上角只填写 BookDistill Key，Agent Key 不进入浏览器。启动、故障处理和验收边界见 [跨书研究运行手册](docs/deepagents-runbook.md)及[自动验收记录](docs/deepagents-acceptance-2026-10-18.md)。
+
 数据库结构只由 Alembic 管理；直接运行 API 前须先执行 `alembic upgrade head`。Compose 中的 `migrate` 服务会自动执行迁移，重复启动是安全的。
 
 ### RAG 检索 MVP
