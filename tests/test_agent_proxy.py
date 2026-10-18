@@ -54,10 +54,14 @@ def test_proxy_sends_server_key_and_limits_book_scope(tmp_path):
                            json={"question": "compare", "book_ids": BOOKS})
         assert good.status_code == 202
         assert client.get(f"/api/v1/agent/runs/{RUN}").status_code == 200
-    assert len(calls) == 2
+        assert client.post(f"/api/v1/agent/runs/{RUN}/cancel").status_code == 200
+        assert client.post(f"/api/v1/agent/runs/{RUN}/retry").status_code == 200
+    assert len(calls) == 4
     assert calls[0].headers["X-Agent-API-Key"] == "agent-key"
     assert calls[0].headers["Idempotency-Key"] == "user-run"
     assert calls[0].url.path == "/v1/runs"
+    assert calls[2].url.path == f"/v1/runs/{RUN}/cancel"
+    assert calls[3].url.path == f"/v1/runs/{RUN}/retry"
     assert "book-key" not in str(calls[0].headers)
 
 

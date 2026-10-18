@@ -136,6 +136,8 @@ export const bookDistillApi={
   ask:(question:string, bookIds:string[], chapterIds:string[]=[])=>{const requestId=crypto.randomUUID();return request<RetrieveAndAnswerResponse>("/api/v1/rag/answer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({schema_version:"1.0",trace_context:{request_id:requestId,trace_id:crypto.randomUUID()},question,scope:{book_ids:bookIds,chapter_ids:chapterIds},language:"bilingual"})});},
   createResearchRun:(question:string,bookIds:string[],questionCount:number,idempotencyKey:string)=>request<AgentRunView>("/api/v1/agent/runs",{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":idempotencyKey},body:JSON.stringify({question,book_ids:bookIds,question_count:questionCount})}),
   getResearchRun:(runId:string)=>request<AgentRunView>(`/api/v1/agent/runs/${encodeURIComponent(runId)}`),
+  cancelResearchRun:(runId:string)=>request<AgentRunView>(`/api/v1/agent/runs/${encodeURIComponent(runId)}/cancel`,{method:"POST"}),
+  retryResearchRun:(runId:string)=>request<AgentRunView>(`/api/v1/agent/runs/${encodeURIComponent(runId)}/retry`,{method:"POST"}),
   distill:(kind:DistillationKind,payload:unknown)=>request<Record<string,unknown>>(`/api/v1/generation/${kind}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),
   distillSaved:async(kind:DistillationKind,payload:unknown)=>{
     const response=await fetchResponse(`/api/v1/generation/${kind}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});

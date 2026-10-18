@@ -13,7 +13,7 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 
-TERMINAL = {"succeeded", "refused", "failed"}
+TERMINAL = {"succeeded", "refused", "failed", "cancelled"}
 
 
 class IdempotencyConflict(Exception):
@@ -73,12 +73,33 @@ class RunStore:
 
     def incomplete_ids(self) -> list[str]:
         with self._connect() as db:
-            rows = db.execute("SELECT run_id FROM runs WHERE status NOT IN ('succeeded','refused','failed')").fetchall()
+            rows = db.execute("SELECT run_id FROM runs WHERE status NOT IN ('succeeded','refused','failed','cancelled')").fetchall()
         return [row["run_id"] for row in rows]
+
+    def cancel(self, run_id: str) -> dict[str, Any] | None:
+        with self._lock, self._connect() as db:
+            db.execute("UPDATE runs SET status='cancel_requested', updated_at=? "
+                       "WHERE run_id=? AND status NOT IN ('succeeded','refused','failed','cancelled')",
+                       (datetime.now(timezone.utc).isoformat(), run_id))
+        return self.get(run_id)
+
+    def retry(self, run_id: str, checkpoint: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        with self._lock, self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT checkpoint_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if row is None:
+                return None
+            db.execute("UPDATE runs SET status='queued', error_code=NULL, checkpoint_json=?, updated_at=? "
+                       "WHERE run_id=? AND status='failed' AND error_code IN "
+                       "('timeout','unavailable','rate_limited','upstream_error','upstream_job_failed','internal_error')",
+                       (json.dumps(checkpoint, ensure_ascii=False) if checkpoint is not None else
+                        row["checkpoint_json"],
+                        datetime.now(timezone.utc).isoformat(), run_id))
+        return self.get(run_id)
 
     def save(self, run_id: str, *, status: str | None = None, phase: str | None = None,
              checkpoint: dict[str, Any] | None = None, result: dict[str, Any] | None = None,
-             error_code: str | None = None) -> dict[str, Any]:
+             error_code: str | None = None, unless_cancel_requested: bool = False) -> dict[str, Any]:
         updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
         if status is not None:
             updates["status"] = status
@@ -92,7 +113,8 @@ class RunStore:
             updates["error_code"] = error_code
         assignments = ", ".join(f"{key}=?" for key in updates)
         with self._lock, self._connect() as db:
-            db.execute(f"UPDATE runs SET {assignments} WHERE run_id=?", (*updates.values(), run_id))
+            condition = " AND status!='cancel_requested'" if unless_cancel_requested else ""
+            db.execute(f"UPDATE runs SET {assignments} WHERE run_id=?{condition}", (*updates.values(), run_id))
         record = self.get(run_id)
         if record is None:
             raise KeyError(run_id)

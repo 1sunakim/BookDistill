@@ -21,6 +21,7 @@ class RunRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     book_ids: list[UUID] = Field(min_length=2, max_length=10)
     question_count: int = Field(default=3, ge=1, le=10)
+    max_duration_seconds: int = Field(default=300, ge=30, le=1800)
     conversation_id: UUID | None = None
 
     @model_validator(mode="after")
@@ -32,7 +33,10 @@ class RunRequest(BaseModel):
 
 def public_view(record: dict[str, Any]) -> dict[str, Any]:
     jobs = record["checkpoint"].get("jobs", {})
-    return {"run_id": record["run_id"], "conversation_id": record["conversation_id"],
+    return {"run_id": record["run_id"], "trace_id": record["run_id"],
+            "events": record["checkpoint"].get("events", []),
+            "deadline_at": record["checkpoint"].get("deadline_at"),
+            "conversation_id": record["conversation_id"],
             "thread_id": record["thread_id"], "status": record["status"],
             "phase": record["phase"], "comparison_job_id": jobs.get("comparison"),
             "questions_job_id": jobs.get("questions"), "result": record["result"],
@@ -82,6 +86,35 @@ def create_app(*, db_path: str | Path, agent_api_key: str,
             raise HTTPException(404, "run not found")
         if record["status"] not in TERMINAL:
             manager.schedule(record["run_id"])
+        return public_view(record)
+
+    @app.post("/v1/runs/{run_id}/cancel", dependencies=[Depends(authorize)])
+    def cancel_run(run_id: UUID) -> dict[str, Any]:
+        record = store.cancel(str(run_id))
+        if record is None:
+            raise HTTPException(404, "run not found")
+        if record["status"] == "cancel_requested":
+            manager.schedule(record["run_id"])
+        return public_view(record)
+
+    @app.post("/v1/runs/{run_id}/retry", dependencies=[Depends(authorize)])
+    def retry_run(run_id: UUID) -> dict[str, Any]:
+        record = store.get(str(run_id))
+        if record is None:
+            raise HTTPException(404, "run not found")
+        if record["status"] != "failed" or record["error_code"] not in {
+            "timeout", "unavailable", "rate_limited", "upstream_error",
+            "upstream_job_failed", "internal_error"}:
+            raise HTTPException(409, "run is not retryable")
+        checkpoint = record["checkpoint"]
+        if record["error_code"] == "upstream_job_failed":
+            checkpoint["retry_requested"] = True
+        # A manual retry gets a new deadline while retaining evidence and job IDs.
+        checkpoint.pop("deadline_at", None)
+        record = store.retry(record["run_id"], checkpoint)
+        if record["status"] != "queued":
+            raise HTTPException(409, "run is not retryable")
+        manager.schedule(record["run_id"])
         return public_view(record)
 
     return app

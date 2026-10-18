@@ -111,6 +111,14 @@ class FakeBackend:
     def get_job(self, job_id):
         return copy.deepcopy(self.jobs[job_id])
 
+    def cancel_job(self, job_id):
+        self.jobs[job_id]["status"] = "cancelled"
+        return self.get_job(job_id)
+
+    def retry_job(self, job_id):
+        self.jobs[job_id]["status"] = "succeeded"
+        return self.get_job(job_id)
+
 
 def request():
     return {"question": "Compare the books", "book_ids": BOOKS,
@@ -158,6 +166,59 @@ def test_resume_reuses_upstream_job_id_after_restart(tmp_path):
     assert second.store.get(record["run_id"])["status"] == "succeeded"
     assert backend.submissions == {"comparison": 1, "questions": 1}
     second.close()
+
+
+def test_cancel_waiting_run_stops_upstream_job(tmp_path):
+    backend = FakeBackend()
+    backend.queued = True
+    store = RunStore(tmp_path / "cancel.db")
+    record, _ = store.create(request(), "cancel")
+    manager = RunManager(store, lambda: backend, poll_window=0)
+    manager.process(record["run_id"])
+    job_id = store.get(record["run_id"])["checkpoint"]["jobs"]["comparison"]
+    assert store.cancel(record["run_id"])["status"] == "cancel_requested"
+    manager.process(record["run_id"])
+    assert store.get(record["run_id"])["status"] == "cancelled"
+    assert backend.jobs[job_id]["status"] == "cancelled"
+    assert backend.submissions["questions"] == 0
+    assert record["run_id"] not in store.incomplete_ids()
+    manager.close()
+
+
+def test_retry_failed_job_reuses_job_id(tmp_path):
+    backend = FakeBackend()
+    backend.queued = True
+    store = RunStore(tmp_path / "retry.db")
+    record, _ = store.create(request(), "retry")
+    manager = RunManager(store, lambda: backend, poll_window=0)
+    manager.process(record["run_id"])
+    job_id = store.get(record["run_id"])["checkpoint"]["jobs"]["comparison"]
+    backend.jobs[job_id]["status"] = "failed"
+    manager.process(record["run_id"])
+    assert store.get(record["run_id"])["error_code"] == "upstream_job_failed"
+    checkpoint = store.get(record["run_id"])["checkpoint"]
+    checkpoint["retry_requested"] = True
+    checkpoint.pop("deadline_at")
+    store.save(record["run_id"], checkpoint=checkpoint)
+    store.retry(record["run_id"])
+    backend.queued = False
+    manager.process(record["run_id"])
+    assert store.get(record["run_id"])["status"] == "succeeded"
+    assert store.get(record["run_id"])["checkpoint"]["jobs"]["comparison"] == job_id
+    assert backend.submissions == {"comparison": 1, "questions": 1}
+    manager.close()
+
+
+def test_deadline_prevents_generation(tmp_path):
+    backend = FakeBackend()
+    store = RunStore(tmp_path / "timeout.db")
+    record, _ = store.create(request(), "timeout")
+    store.save(record["run_id"], checkpoint={"deadline_at": "2000-01-01T00:00:00+00:00"})
+    manager = RunManager(store, lambda: backend)
+    manager.process(record["run_id"])
+    assert store.get(record["run_id"])["error_code"] == "run_timeout"
+    assert backend.submissions == {"comparison": 0, "questions": 0}
+    manager.close()
 
 
 def test_crash_after_submit_before_checkpoint_reuses_upstream_job(tmp_path):
@@ -264,6 +325,29 @@ def test_agent_api_auth_and_idempotent_run(tmp_path):
             view = http.get(f"/v1/runs/{run_id}", headers=headers)
         assert view.json()["status"] == "succeeded"
         assert len(view.json()["result"]["comparison"]["citations"]) == 2
+        assert view.json()["trace_id"] == run_id
+        assert view.json()["events"][-1]["event"] == "completed"
+
+
+def test_agent_api_cancel_and_retry_states(tmp_path):
+    backend = FakeBackend()
+    backend.queued = True
+    app = create_app(db_path=tmp_path / "actions.db", agent_api_key="test-secret",
+                     client_factory=lambda: backend)
+    auth = {"X-Agent-API-Key": "test-secret"}
+    with TestClient(app) as http:
+        created = http.post("/v1/runs", json=request(),
+                            headers=auth | {"Idempotency-Key": "actions"}).json()
+        run_id = created["run_id"]
+        assert http.post(f"/v1/runs/{run_id}/cancel").status_code == 401
+        assert http.post(f"/v1/runs/{run_id}/retry", headers=auth).status_code == 409
+        cancelled = http.post(f"/v1/runs/{run_id}/cancel", headers=auth)
+        assert cancelled.status_code == 200
+        deadline = time.monotonic() + 3
+        while http.get(f"/v1/runs/{run_id}", headers=auth).json()["status"] != "cancelled" and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert http.get(f"/v1/runs/{run_id}", headers=auth).json()["status"] == "cancelled"
+        assert http.post(f"/v1/runs/{run_id}/retry", headers=auth).status_code == 409
 
 
 def test_new_http_tools_match_bookdistill_contracts():
@@ -284,6 +368,7 @@ def test_new_http_tools_match_bookdistill_contracts():
     groups = [{"book_id": item["book_id"], "book_title": item["book_title"],
                "evidence": [item], "language": "zh-CN"} for item in items]
     with BookDistillClient("http://test.local", "backend-key", transport=httpx.MockTransport(handler)) as client:
+        client.set_trace_id(RUN_ID)
         client.submit_comparison("Compare", groups, "test-key")
         client.submit_questions(items, 2, "test-key")
         client.get_job(job_id)
@@ -293,4 +378,6 @@ def test_new_http_tools_match_bookdistill_contracts():
                                           "/api/v1/generation/questions/jobs",
                                           f"/api/v1/jobs/{job_id}"]
     assert all(call[2]["x-bookdistill-api-key"] == "backend-key" for call in calls)
+    assert all(call[2]["x-trace-id"] == RUN_ID for call in calls)
+    assert calls[0][3]["trace_context"]["trace_id"] == RUN_ID
     assert all(call[2]["idempotency-key"] == "test-key" for call in calls[:2])

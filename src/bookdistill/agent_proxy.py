@@ -17,6 +17,7 @@ class AgentRunRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     book_ids: list[UUID] = Field(min_length=2, max_length=10)
     question_count: int = Field(default=3, ge=1, le=10)
+    max_duration_seconds: int = Field(default=300, ge=30, le=1800)
     conversation_id: UUID | None = None
 
     @model_validator(mode="after")
@@ -46,7 +47,7 @@ def create_agent_proxy_router(settings: Settings, get_book: Callable[[UUID], Boo
                 if response.status_code == 404:
                     raise HTTPException(404, {"code": "AGENT_RUN_NOT_FOUND", "message": "Research run not found."})
                 if response.status_code == 409:
-                    raise HTTPException(409, {"code": "IDEMPOTENCY_CONFLICT", "message": "Idempotency key was used for another request."})
+                    raise HTTPException(409, {"code": "AGENT_CONFLICT", "message": "Research request conflicts with the current run state."})
                 response.raise_for_status()
                 data = response.json()
         except HTTPException:
@@ -72,5 +73,15 @@ def create_agent_proxy_router(settings: Settings, get_book: Callable[[UUID], Boo
     def get_run(run_id: UUID) -> dict:
         enabled()
         return forward("GET", f"/v1/runs/{run_id}")
+
+    @router.post("/runs/{run_id}/cancel")
+    def cancel_run(run_id: UUID) -> dict:
+        enabled()
+        return forward("POST", f"/v1/runs/{run_id}/cancel")
+
+    @router.post("/runs/{run_id}/retry")
+    def retry_run(run_id: UUID) -> dict:
+        enabled()
+        return forward("POST", f"/v1/runs/{run_id}/retry")
 
     return router

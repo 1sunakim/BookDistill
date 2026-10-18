@@ -1,4 +1,4 @@
-# BookDistill × Deep Agents：第 1–2 轮集成
+# BookDistill × Deep Agents：四轮集成
 
 本目录是独立 Python 环境，不修改 Deep Agents 源码。固定 `deepagents==0.7.23`；`uv.lock` 固定完整依赖。Agent 只调用 BookDistill 公开 HTTP API，书籍白名单由 `ResearchRun` 在每次运行开始时锁定。
 
@@ -72,4 +72,10 @@ uv run bookdistill-agent-api
 
 第 3 轮工程检查：前端 `npm run build` 与 `npx tsc --noEmit` 通过；`docker compose --profile agent config --quiet` 通过；Agent 镜像构建、容器健康冒烟通过；BookDistill 转发与原检索、RAG、蒸馏相关后端测试通过。未在真实书籍上执行外部模型端到端测试；此项仍需用户明确指定可外传书籍。正式验收和质量对照仍属于第 4 轮之后。
 
-检索证据文本视为数据，不作为指令。生成端的引用和原页定位由 BookDistill 服务校验并提供，Agent 服务进一步检查返回值与本次证据一致。第 4 轮继续处理取消、超时、重复提交与追踪细节。
+检索证据文本视为数据，不作为指令。生成端的引用和原页定位由 BookDistill 服务校验并提供，Agent 服务进一步检查返回值与本次证据一致。
+
+## 第 4 轮：运行控制与交付
+
+已加入跨书运行取消、失败后人工重试、持久化截止时间、阶段事件和跨服务 `trace_id`。浏览器展示状态、取消与可重试操作，并在网络提交失败后保留幂等键。运行和部署命令、失败处理、数据保护及验证边界见 [运行手册](../../docs/deepagents-runbook.md)。固定依赖版本和锁文件保持不变。正式跨书服务仍采用可恢复的固定步骤，Deep Agents 自主工具调用只在 CLI 演示及测试中运行。
+
+四轮制作后的产品工程验证与后续正式质量验收分开。真实书籍内容到外部模型的完整端到端验证仍需指定可外传演示数据和授权。

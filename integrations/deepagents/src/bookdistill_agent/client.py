@@ -23,6 +23,7 @@ class BookDistillClient:
         if timeout <= 0:
             raise ValueError("timeout must be positive")
         headers = {"X-BookDistill-API-Key": api_key} if api_key else {}
+        self._trace_id: str | None = None
         self._http = httpx.Client(base_url=base_url.rstrip("/"), headers=headers,
                                   timeout=timeout, transport=transport)
 
@@ -31,6 +32,10 @@ class BookDistillClient:
 
     def __exit__(self, *_: object) -> None:
         self._http.close()
+
+    def set_trace_id(self, trace_id: str) -> None:
+        self._trace_id = trace_id
+        self._http.headers["X-Trace-ID"] = trace_id
 
     def _request(self, method: str, path: str, payload: dict[str, Any] | None = None,
                  idempotency_key: str | None = None) -> dict[str, Any]:
@@ -72,7 +77,7 @@ class BookDistillClient:
                           idempotency_key: str, *, language: str = "zh-CN") -> dict[str, Any]:
         data = self._post("/api/v1/generation/viewpoint-comparison/jobs", {
             "schema_version": "1.0",
-            "trace_context": {"request_id": str(uuid4()), "trace_id": str(uuid4())},
+            "trace_context": {"request_id": str(uuid4()), "trace_id": self._trace_id or str(uuid4())},
             "payload": {"question": question, "books": groups, "language": language},
         }, idempotency_key)
         return self._validate_job(data)
@@ -81,7 +86,7 @@ class BookDistillClient:
                          idempotency_key: str, *, language: str = "zh-CN") -> dict[str, Any]:
         data = self._post("/api/v1/generation/questions/jobs", {
             "schema_version": "1.0",
-            "trace_context": {"request_id": str(uuid4()), "trace_id": str(uuid4())},
+            "trace_context": {"request_id": str(uuid4()), "trace_id": self._trace_id or str(uuid4())},
             "payload": {"evidence": evidence, "language": language,
                         "count": count, "types": ["comparison"]},
         }, idempotency_key)
@@ -92,6 +97,12 @@ class BookDistillClient:
         if data.get("job_id") != job_id:
             raise BookDistillError("invalid_response")
         return self._validate_job(data)
+
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
+        return self._validate_job(self._post(f"/api/v1/jobs/{job_id}/cancel", {}))
+
+    def retry_job(self, job_id: str) -> dict[str, Any]:
+        return self._validate_job(self._post(f"/api/v1/jobs/{job_id}/retry", {}))
 
     @staticmethod
     def _validate_job(data: dict[str, Any]) -> dict[str, Any]:
@@ -106,7 +117,7 @@ class BookDistillClient:
                *, language: str = "zh-CN") -> dict[str, Any]:
         data = self._post("/api/v1/generation/rag-answer", {
             "schema_version": "1.0",
-            "trace_context": {"request_id": str(uuid4()), "trace_id": str(uuid4())},
+            "trace_context": {"request_id": str(uuid4()), "trace_id": self._trace_id or str(uuid4())},
             "payload": {"question": question,
                         "scope": {"book_ids": book_ids, "chapter_ids": []},
                         "evidence": evidence, "language": language},
